@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 
 const androidStoreUrl = "https://play.google.com/store/apps/details?id=com.fraktal.runlab";
-const iosStoreUrl = "https://apps.apple.com/br/app/runlab/id6475360973";
+const iosStoreUrl = "https://apps.apple.com/br/app/runlab/id6760765880";
 
 const Open = () => {
   useEffect(() => {
