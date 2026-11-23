@@ -903,3 +903,157 @@ export async function exportRankingCsv(competitionId: string) {
   const csv = generateCsv(headers, rows);
   downloadCsv(csv, `ranking-${competitionId}.csv`);
 }
+
+/**
+ * Exports the attempts audit as CSV (button "Exportar" on the
+ * "Auditoria de tentativas" tab).
+ *
+ * Who appears in the public ranking comes first, with the same position the
+ * app shows (per distance). Then everyone who tried and does not appear in the
+ * app, with the reason. Read-only: it only reads the two ranking views and the
+ * admin e-mail view; nothing is written.
+ */
+export async function exportAttemptsCsv(competitionId: string) {
+  const PAGE = 1000; // api.max_rows
+
+  type PublicRow = {
+    user_id: string;
+    distance_meters: number;
+    avg_pace_seconds_per_km: number | null;
+    total_time_seconds: number | null;
+    rank: number;
+    user_name: string | null;
+    state: string;
+  };
+  type AuditRow = {
+    user_id: string;
+    distance_meters: number;
+    avg_pace_seconds_per_km: number | null;
+    total_time_seconds: number | null;
+    user_name: string | null;
+    state: string;
+    public_visibility: string | null;
+    hidden_reason: string | null;
+  };
+
+  async function fetchAll<T>(table: string, columns: string): Promise<T[]> {
+    const all: T[] = [];
+    for (let from = 0; ; from += PAGE) {
+      const { data, error } = await supabase
+        .from(table)
+        .select(columns)
+        .eq("competition_id", competitionId)
+        .order("distance_meters", { ascending: true })
+        .order("rank", { ascending: true })
+        .order("user_id", { ascending: true })
+        .range(from, from + PAGE - 1);
+      if (error) {
+        throw new Error(
+          error.code === "57014"
+            ? "A exportação demorou demais (tempo limite do banco). Tente novamente em instantes."
+            : `Erro ao exportar tentativas: ${error.message}`
+        );
+      }
+      all.push(...((data ?? []) as T[]));
+      if (!data || data.length < PAGE) break;
+    }
+    return all;
+  }
+
+  const publicRows = await fetchAll<PublicRow>(
+    "v_competition_leaderboard",
+    "user_id, distance_meters, avg_pace_seconds_per_km, total_time_seconds, rank, user_name, state"
+  );
+  const auditRows = await fetchAll<AuditRow>(
+    "v_admin_competition_attempt_ranking",
+    "user_id, distance_meters, avg_pace_seconds_per_km, total_time_seconds, rank, user_name, state, public_visibility, hidden_reason"
+  );
+
+  if (publicRows.length === 0 && auditRows.length === 0) {
+    throw new Error("Nenhuma tentativa para exportar");
+  }
+
+  // E-mails (as views do ranking não têm e-mail; v_corredores_admin tem).
+  const userIds = [
+    ...new Set([...publicRows, ...auditRows].map((r) => r.user_id)),
+  ];
+  const emailMap: Record<string, string> = {};
+  for (let i = 0; i < userIds.length; i += 100) {
+    const chunk = userIds.slice(i, i + 100);
+    const { data: people, error: peopleError } = await supabase
+      .from("v_corredores_admin")
+      .select("id, email")
+      .in("id", chunk);
+    if (peopleError) {
+      throw new Error(`Erro ao buscar e-mails: ${peopleError.message}`);
+    }
+    (people ?? []).forEach((p: { id: string; email: string | null }) => {
+      emailMap[p.id] = p.email ?? "";
+    });
+  }
+
+  const inPublic = new Set(publicRows.map((r) => r.user_id));
+
+  const visible = publicRows.map((r) => ({
+    distance: r.distance_meters,
+    order: 0,
+    rank: r.rank,
+    cells: [
+      formatDistanceKm(r.distance_meters),
+      `${r.rank}º`,
+      r.user_name || "Desconhecido",
+      emailMap[r.user_id] ?? "",
+      formatPace(r.avg_pace_seconds_per_km),
+      formatTime(r.total_time_seconds),
+      mapRunState(r.state),
+      "Sim",
+      "",
+    ],
+  }));
+
+  const notVisible = auditRows
+    .filter((r) => !inPublic.has(r.user_id))
+    .map((r) => ({
+      distance: r.distance_meters,
+      order: 1,
+      rank: 0,
+      cells: [
+        formatDistanceKm(r.distance_meters),
+        "",
+        r.user_name || "Desconhecido",
+        emailMap[r.user_id] ?? "",
+        formatPace(r.avg_pace_seconds_per_km),
+        formatTime(r.total_time_seconds),
+        mapRunState(r.state),
+        "Não",
+        r.hidden_reason
+          ? mapHiddenReason(r.hidden_reason)
+          : "Fora das regras do ranking do app",
+      ],
+    }));
+
+  const rows = [...visible, ...notVisible]
+    .sort(
+      (a, b) =>
+        a.distance - b.distance ||
+        a.order - b.order ||
+        a.rank - b.rank ||
+        a.cells[2].localeCompare(b.cells[2], "pt-BR")
+    )
+    .map((r) => r.cells);
+
+  const headers = [
+    "Distância",
+    "Posição",
+    "Corredor",
+    "E-mail",
+    "Pace",
+    "Tempo",
+    "Situação",
+    "Visível no app",
+    "Motivo",
+  ];
+
+  const csv = generateCsv(headers, rows);
+  downloadCsv(csv, `tentativas-${competitionId}.csv`);
+}
