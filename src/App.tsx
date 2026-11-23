@@ -7,6 +7,7 @@ import { AdminGuard } from "@/components/AdminGuard";
 import Parceiros from "./pages/Parceiros";
 import ParceiroDetalhes from "./pages/ParceiroDetalhes";
 import Financeiro from "./pages/Financeiro";
+import Cupons from "./pages/Cupons";
 import Corredores from "./pages/Corredores";
 import CorredorDetalhes from "./pages/CorredorDetalhes";
 import GestaoCompeticoes from "./pages/GestaoCompeticoes";
@@ -40,6 +41,7 @@ const App = () => (
             <Route path="/parceiros" element={<Parceiros />} />
             <Route path="/parceiros/:id" element={<ParceiroDetalhes />} />
             <Route path="/financeiro" element={<Financeiro />} />
+            <Route path="/cupons" element={<Cupons />} />
             <Route path="/corredores" element={<Corredores />} />
             <Route path="/corredores/:id" element={<CorredorDetalhes />} />
             <Route path="/gestao-competicoes" element={<GestaoCompeticoes />} />

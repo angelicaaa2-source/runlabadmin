@@ -10,6 +10,7 @@ function getRequiredPermission(pathname: string): string | null {
   if (pathname.startsWith("/parceiros")) return "usuarios.view";
   if (pathname.startsWith("/corredores")) return "usuarios.view";
   if (pathname.startsWith("/financeiro")) return "financeiro.view";
+  if (pathname.startsWith("/cupons")) return "financeiro.view";
   return null;
 }
 

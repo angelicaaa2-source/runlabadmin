@@ -3,6 +3,12 @@ import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 
+// Dois hooks montados no mesmo milissegundo (ex.: Header e a página chamando usePermissions)
+// geravam o mesmo nome de canal com Date.now(); o supabase-js devolvia o canal já inscrito e a
+// tela quebrava ("cannot add postgres_changes callbacks after subscribe()"). O contador evita isso.
+let contadorCanais = 0;
+const nomeUnico = () => `${Date.now()}-${++contadorCanais}`;
+
 /**
  * Escuta mudanças em tempo real de uma ou mais tabelas do Supabase
  * e invalida as query keys do React Query automaticamente.
@@ -17,7 +23,7 @@ export function useRealtimeInvalidation(
   useEffect(() => {
     if (tables.length === 0) return;
 
-    const channelName = `realtime-${tables.join("-")}-${Date.now()}`;
+    const channelName = `realtime-${tables.join("-")}-${nomeUnico()}`;
     const channel = supabase.channel(channelName);
 
     tables.forEach((table) => {
@@ -81,7 +87,7 @@ export function useRealtimeRefetch(
       }, throttleMs);
     };
 
-    const channelName = `realtime-refetch-${tables.join("-")}-${Date.now()}`;
+    const channelName = `realtime-refetch-${tables.join("-")}-${nomeUnico()}`;
     const channel = supabase.channel(channelName);
 
     tables.forEach((table) => {
