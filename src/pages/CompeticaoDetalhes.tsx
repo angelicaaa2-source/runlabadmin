@@ -28,6 +28,7 @@ import {
   mapHiddenReason,
   exportRegistrationsCsv,
   exportRankingCsv,
+  exportAttemptsCsv,
 } from "@/hooks/useCompetitionDetails";
 import type { CompetitionDetail, InscricoesFilters } from "@/hooks/useCompetitionDetails";
 import { toast } from "sonner";
@@ -450,9 +451,20 @@ const InscricoesTab = ({
 
 // ─── Tab: Ranking ────────────────────────────────────────
 
-const RankingTab = ({ competitionId }: { competitionId: string }) => {
+const RankingTab = ({
+  competitionId,
+  onSourceChange,
+}: {
+  competitionId: string;
+  onSourceChange?: (source: "public" | "audit") => void;
+}) => {
   const [page, setPage] = useState(1);
   const [source, setSource] = useState<"public" | "audit">("public");
+
+  // Avisa a página qual aba está aberta, para o botão Exportar baixar a certa.
+  useEffect(() => {
+    onSourceChange?.(source);
+  }, [source, onSourceChange]);
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const pageSize = 10;
@@ -622,6 +634,7 @@ const CompeticaoDetalhesContent = () => {
   const [isExportDialogOpen, setIsExportDialogOpen] = useState(false);
   const [isFilterDialogOpen, setIsFilterDialogOpen] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [rankingSource, setRankingSource] = useState<"public" | "audit">("public");
   const [inscricoesFilters, setInscricoesFilters] = useState<InscricoesFilters>({});
   const [inscricoesPage, setInscricoesPage] = useState(1);
 
@@ -634,6 +647,9 @@ const CompeticaoDetalhesContent = () => {
       if (activeTab === "inscricoes") {
         await exportRegistrationsCsv(id);
         toast.success("Inscrições exportadas com sucesso!");
+      } else if (activeTab === "ranking" && rankingSource === "audit") {
+        await exportAttemptsCsv(id);
+        toast.success("Tentativas exportadas com sucesso!");
       } else if (activeTab === "ranking") {
         await exportRankingCsv(id);
         toast.success("Ranking exportado com sucesso!");
@@ -756,7 +772,9 @@ const CompeticaoDetalhesContent = () => {
           onPageChange={setInscricoesPage}
         />
       )}
-      {activeTab === "ranking" && <RankingTab competitionId={competition.id} />}
+      {activeTab === "ranking" && (
+        <RankingTab competitionId={competition.id} onSourceChange={setRankingSource} />
+      )}
 
       {/* Dialogs */}
       <ExportDialog
