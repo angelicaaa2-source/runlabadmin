@@ -25,9 +25,9 @@ export interface MonthlyBarItem {
 }
 
 const RECEIPT_COLORS: Record<string, string> = {
-  Inscrição: "#CCF725",
-  Assinatura: "#5BC0EB",
-  Avulso: "#FF8A4C",
+  Créditos: "#FF8A4C",
+  "Inscrição na corrida": "#CCF725",
+  "RunLab Club": "#5BC0EB",
 };
 
 const PARTNER_COLOR_PALETTE = ["#CCF725", "#8B9D00", "#E8F5A0", "#5A6700", "#D4FF66", "#A8C400"];
@@ -66,19 +66,19 @@ async function fetchOverviewData(year: number, month: number) {
     paymentsList.filter((p) => p.plan_type === "anual").map((p) => p.user_id),
   );
 
-  // Split por origem do pagamento para a pizza "Receita por tipo":
-  // - Inscrição: pagamento direto de lote/competição (lot_id presente)
-  // - Assinatura: plano anual
-  // - Avulso: compra de plano avulsa (sem lot_id; gera créditos)
-  const byReceiptType: Record<string, number> = { Inscrição: 0, Assinatura: 0, Avulso: 0 };
+  // Pizza "Receita por tipo", com os nomes padrão (23/11/2026):
+  // - Créditos: inscrição avulsa ou com kit comprada no checkout geral (vira crédito)
+  // - Inscrição na corrida: compra direto na página de uma corrida (lot_id presente)
+  // - RunLab Club: pacote de 12 inscrições
+  const byReceiptType: Record<string, number> = { Créditos: 0, "Inscrição na corrida": 0, "RunLab Club": 0 };
   paymentsList.forEach((p) => {
     const amount = Number(p.amount);
     if (p.plan_type === "anual") {
-      byReceiptType.Assinatura += amount;
+      byReceiptType["RunLab Club"] += amount;
     } else if (p.lot_id) {
-      byReceiptType.Inscrição += amount;
+      byReceiptType["Inscrição na corrida"] += amount;
     } else {
-      byReceiptType.Avulso += amount;
+      byReceiptType.Créditos += amount;
     }
   });
 
@@ -111,7 +111,7 @@ async function fetchOverviewData(year: number, month: number) {
   const totalReceita = faturamentoTotal || 1;
   const receiptPie: PieDataItem[] = [];
 
-  (["Inscrição", "Assinatura", "Avulso"] as const).forEach((name) => {
+  (["Créditos", "Inscrição na corrida", "RunLab Club"] as const).forEach((name) => {
     const value = byReceiptType[name];
     if (value > 0) {
       receiptPie.push({

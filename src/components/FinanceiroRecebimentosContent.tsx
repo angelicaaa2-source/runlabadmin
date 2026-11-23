@@ -39,9 +39,9 @@ const STATUS_OPTIONS: { value: RecebimentoStatus; label: string }[] = [
 ];
 
 const TIPO_OPTIONS = [
-  { value: "Inscrição", label: "Inscrição" },
-  { value: "Assinatura", label: "Assinatura" },
   { value: "Créditos", label: "Créditos" },
+  { value: "Inscrição na corrida", label: "Inscrição na corrida" },
+  { value: "RunLab Club", label: "RunLab Club" },
 ];
 
 function StatusBadge({ status }: { status: RecebimentoStatus }) {
@@ -203,6 +203,7 @@ export const FinanceiroRecebimentosContent = () => {
                 <TableHead className="text-xs font-medium text-[#E0E0E0]">ID</TableHead>
                 <TableHead className="text-xs font-medium text-[#E0E0E0]">Nome</TableHead>
                 <TableHead className="text-xs font-medium text-[#E0E0E0]">Recebimento</TableHead>
+                <TableHead className="text-xs font-medium text-[#E0E0E0]">Produto</TableHead>
                 <TableHead className="text-xs font-medium text-[#E0E0E0]">Competição</TableHead>
                 <TableHead className="text-xs font-medium text-[#E0E0E0]">Valor</TableHead>
                 <TableHead className="text-xs font-medium text-[#E0E0E0]">Data</TableHead>
@@ -213,7 +214,7 @@ export const FinanceiroRecebimentosContent = () => {
             <TableBody>
               {filteredRows.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-center text-muted-foreground py-12">
+                  <TableCell colSpan={9} className="text-center text-muted-foreground py-12">
                     Nenhum recebimento encontrado.
                   </TableCell>
                 </TableRow>
@@ -325,6 +326,7 @@ function RecebimentoRowItem({ row }: { row: RecebimentoRow }) {
       <TableCell className="text-sm text-[#E0E0E0]">{row.shortId}</TableCell>
       <TableCell className="text-sm text-[#E0E0E0]">{row.nome}</TableCell>
       <TableCell className="text-sm text-[#E0E0E0]">{row.tipoRecebimento}</TableCell>
+      <TableCell className="text-sm text-[#E0E0E0]">{row.produto}</TableCell>
       <TableCell className="text-sm text-[#E0E0E0]">{row.competicao}</TableCell>
       <TableCell className="text-sm text-[#E0E0E0]">{formatCurrency(row.valor)}</TableCell>
       <TableCell className="text-sm text-[#E0E0E0]">{row.data}</TableCell>

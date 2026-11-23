@@ -8,7 +8,10 @@ export interface RecebimentoRow {
   id: string;
   shortId: string;
   nome: string;
+  /** Créditos, Inscrição na corrida ou RunLab Club (nomes padrão de 23/11/2026). */
   tipoRecebimento: string;
+  /** Nome padrão do que foi comprado (ex.: "Inscrição avulsa", "Inscrição com kit · Etapa 8"). */
+  produto: string;
   competicao: string;
   valor: number;
   data: string;
@@ -55,7 +58,7 @@ async function fetchRecebimentos(search?: string): Promise<RecebimentoRow[]> {
   // 1) runner_payments (excluindo FAILED e CANCELLED)
   const { data: payments, error } = await supabase
     .from("runner_payments")
-    .select("id, user_id, plan_type, billing_type, amount, status, paid_at, created_at, description")
+    .select("id, user_id, plan_type, plan_id, lot_id, billing_type, amount, status, paid_at, created_at, description")
     .not("status", "in", "(FAILED,CANCELLED)")
     .order("created_at", { ascending: false });
 
@@ -72,6 +75,28 @@ async function fetchRecebimentos(search?: string): Promise<RecebimentoRow[]> {
   const nameMap: Record<string, string> = {};
   (profiles ?? []).forEach((p) => {
     nameMap[p.id] = p.full_name ?? "Usuário";
+  });
+
+  // 2b) Nomes padrão: plano pelo id; compra direto na corrida pelo lote (com ou sem kit) e a corrida.
+  const planIds = [...new Set(payments.map((p) => p.plan_id).filter(Boolean))] as string[];
+  const lotIds = [...new Set(payments.map((p) => p.lot_id).filter(Boolean))] as string[];
+  const [{ data: planos }, { data: lotes }] = await Promise.all([
+    planIds.length ? supabase.from("plans").select("id, name").in("id", planIds) : Promise.resolve({ data: [] }),
+    lotIds.length
+      ? supabase.from("competition_lots").select("id, has_kit, competition_id").in("id", lotIds)
+      : Promise.resolve({ data: [] }),
+  ]);
+  const planoNome: Record<string, string> = {};
+  (planos ?? []).forEach((p: { id: string; name: string }) => (planoNome[p.id] = p.name));
+  const corridaIds = [...new Set((lotes ?? []).map((l: { competition_id: string }) => l.competition_id))];
+  const { data: corridasLote } = corridaIds.length
+    ? await supabase.from("competitions").select("id, title").in("id", corridaIds)
+    : { data: [] };
+  const corridaTitulo: Record<string, string> = {};
+  (corridasLote ?? []).forEach((c: { id: string; title: string }) => (corridaTitulo[c.id] = c.title));
+  const lote: Record<string, { kit: boolean; corrida: string }> = {};
+  (lotes ?? []).forEach((l: { id: string; has_kit: boolean; competition_id: string }) => {
+    lote[l.id] = { kit: !!l.has_kit, corrida: corridaTitulo[l.competition_id] ?? "" };
   });
 
   // 3) Vincular pagamento → competição via credit_transactions
@@ -139,8 +164,21 @@ async function fetchRecebimentos(search?: string): Promise<RecebimentoRow[]> {
   //    senão created_at). A query veio por created_at mas o display usa
   //    paid_at quando disponível — sem este reorder a lista parece bagunçada.
   const rowsWithDate = payments.map((p) => {
-    const tipoRecebimento = p.plan_type === "anual" ? "Assinatura" : "Inscrição";
-    const competicao = compNameByPayment[p.id] ?? (p.description || "-");
+    const naCorrida = p.lot_id ? lote[p.lot_id] : undefined;
+    const tipoRecebimento = p.plan_type === "anual"
+      ? "RunLab Club"
+      : p.lot_id
+        ? "Inscrição na corrida"
+        : "Créditos";
+    const produto = p.plan_type === "anual"
+      ? "RunLab Club"
+      : naCorrida
+        ? `${naCorrida.kit ? "Inscrição com kit" : "Inscrição avulsa"}${naCorrida.corrida ? ` · ${naCorrida.corrida}` : ""}`
+        : /^\d+x /.test(p.description ?? "")
+          ? (p.description as string)
+          : (p.plan_id && planoNome[p.plan_id]) || p.description || "-";
+    // Corrida: a da compra direto na corrida, ou a corrida em que o crédito foi usado.
+    const competicao = naCorrida?.corrida || compNameByPayment[p.id] || "-";
     const sortDate = p.paid_at ?? p.created_at;
 
     return {
@@ -149,7 +187,8 @@ async function fetchRecebimentos(search?: string): Promise<RecebimentoRow[]> {
         shortId: p.id.slice(0, 7).replace(/-/g, ""),
         nome: nameMap[p.user_id] ?? "Usuário",
         tipoRecebimento,
-        competicao: tipoRecebimento === "Assinatura" ? "-" : competicao,
+        produto,
+        competicao: tipoRecebimento === "RunLab Club" ? "-" : competicao,
         valor: Number(p.amount),
         data: formatDate(sortDate),
         pagamento: BILLING_LABELS[p.billing_type] ?? p.billing_type,
@@ -169,6 +208,7 @@ async function fetchRecebimentos(search?: string): Promise<RecebimentoRow[]> {
       (r) =>
         r.nome.toLowerCase().includes(q) ||
         r.competicao.toLowerCase().includes(q) ||
+        r.produto.toLowerCase().includes(q) ||
         r.tipoRecebimento.toLowerCase().includes(q),
     );
   }
