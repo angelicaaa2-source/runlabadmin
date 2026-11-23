@@ -236,7 +236,8 @@ const Cupons = () => {
                 <TableHead className="font-medium" style={cabecalho}>Desconto</TableHead>
                 <TableHead className="font-medium min-w-[220px]" style={cabecalho}>Vale para</TableHead>
                 <TableHead className="font-medium" style={cabecalho}>Uso por CPF</TableHead>
-                <TableHead className="font-medium" style={cabecalho}>Usos</TableHead>
+                <TableHead className="font-medium text-center" style={cabecalho}>Vezes usado</TableHead>
+                <TableHead className="font-medium" style={cabecalho}>Limite total</TableHead>
                 <TableHead className="font-medium" style={cabecalho}>Validade</TableHead>
                 <TableHead className="font-medium" style={cabecalho}>Status</TableHead>
                 {podeEditar && <TableHead className="font-medium text-right" style={cabecalho}>Editar / ativo</TableHead>}
@@ -245,7 +246,7 @@ const Cupons = () => {
             <TableBody>
               {isLoading && (
                 <TableRow className="bg-table-row">
-                  <TableCell colSpan={8} className="text-center text-muted-foreground py-10">
+                  <TableCell colSpan={9} className="text-center text-muted-foreground py-10">
                     <Loader2 className="h-5 w-5 animate-spin inline mr-2" />
                     Carregando cupons...
                   </TableCell>
@@ -253,14 +254,14 @@ const Cupons = () => {
               )}
               {error && (
                 <TableRow className="bg-table-row">
-                  <TableCell colSpan={8} className="text-center text-destructive py-10">
+                  <TableCell colSpan={9} className="text-center text-destructive py-10">
                     Não foi possível carregar os cupons. {error instanceof Error ? error.message : ""}
                   </TableCell>
                 </TableRow>
               )}
               {!isLoading && !error && lista.length === 0 && (
                 <TableRow className="bg-table-row">
-                  <TableCell colSpan={8} className="text-center text-muted-foreground py-10">
+                  <TableCell colSpan={9} className="text-center text-muted-foreground py-10">
                     Nenhum cupom neste filtro.
                   </TableCell>
                 </TableRow>
@@ -287,11 +288,22 @@ const Cupons = () => {
                       <ValePara cupom={cupom} corridas={corridas} pacotes={pacotes} />
                     </TableCell>
                     <TableCell className="text-foreground whitespace-nowrap">{formataUsoPorCpf(cupom)}</TableCell>
-                    <TableCell className="text-foreground whitespace-nowrap">
+                    <TableCell className="text-foreground whitespace-nowrap text-center text-base font-semibold">
                       {cupom.usos}
-                      <span className="text-muted-foreground">
-                        {cupom.max_uses != null ? ` de ${cupom.max_uses}` : " · sem limite"}
-                      </span>
+                    </TableCell>
+                    <TableCell className="text-foreground whitespace-nowrap">
+                      {cupom.max_uses != null ? (
+                        <>
+                          {cupom.max_uses}
+                          <span className="block text-xs text-muted-foreground">
+                            {cupom.usos >= cupom.max_uses
+                              ? "esgotado"
+                              : `restam ${cupom.max_uses - cupom.usos}`}
+                          </span>
+                        </>
+                      ) : (
+                        <span className="text-muted-foreground">Sem limite</span>
+                      )}
                     </TableCell>
                     <TableCell className="text-foreground whitespace-nowrap">{formataValidade(cupom)}</TableCell>
                     <TableCell>
