@@ -67,6 +67,15 @@ export const Header = () => {
               Cupons
             </NavLink>
           )}
+          {hasPermission("financeiro.view") && (
+            <NavLink 
+              to="/loja-checkout" 
+              className="text-muted-foreground transition-colors"
+              activeClassName="text-primary font-medium border-b-2 border-primary pb-1 hover:text-primary"
+            >
+              Loja do checkout
+            </NavLink>
+          )}
           {hasPermission("usuarios.view") && (
             <>
               <NavLink 
