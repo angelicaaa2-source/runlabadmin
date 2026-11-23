@@ -17,7 +17,7 @@ import { supabase } from "@/lib/supabase";
 import { usePermissions } from "@/hooks/usePermissions";
 import { PERMISSION_KEYS } from "@/lib/permissions";
 
-type CompetitionOption = { id: string; title: string };
+type CompetitionOption = { id: string; title: string; ends_on: string | null };
 type DistanceOption = { id: string; label: string | null; meters: number };
 
 const MANUAL_RUN_ERROR_MESSAGES: Record<string, string> = {
@@ -31,7 +31,24 @@ const MANUAL_RUN_ERROR_MESSAGES: Record<string, string> = {
   "Competicao nao esta em andamento": "A competição não está em andamento.",
   "Competicao fora da janela de corrida": "A competição está fora do período de corrida.",
   "Tentativa já utilizada nesta competição": "O atleta já tem uma corrida finalizada e a competição só permite uma tentativa.",
+  REVIEW_PERIOD_OVER: "O prazo de revisão desta competição acabou (7 dias depois do fim).",
+  "Competicao fora da janela de inscricoes": "A competição está fora do período de inscrições.",
 };
+
+/** Dias depois do fim da competição em que ainda dá para lançar corrida (o banco confere o mesmo prazo). */
+const REVIEW_DAYS = 7;
+
+/** Soma dias a uma data civil YYYY-MM-DD. */
+function addDays(date: string, days: number): string {
+  const d = new Date(`${date}T12:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+
+/** YYYY-MM-DD -> DD/MM */
+function formatDayMonth(date: string): string {
+  return `${date.slice(8, 10)}/${date.slice(5, 7)}`;
+}
 
 /** Data civil de hoje em Brasília (YYYY-MM-DD), mesma referência das competições. */
 function todayInBrasilia(): string {
@@ -91,16 +108,18 @@ export const LancarCorridaButton = ({ userId, userName, onCreated }: LancarCorri
   const [duration, setDuration] = useState("");
   const [reason, setReason] = useState("");
 
-  // Só competições em andamento hoje: o banco recusa corrida fora da janela.
+  // Competições em andamento hoje e encerradas há até REVIEW_DAYS dias (prazo de
+  // revisão): o banco recusa corrida fora disso.
   useEffect(() => {
     if (!open) return;
     const today = todayInBrasilia();
+    const reviewStart = addDays(today, -REVIEW_DAYS);
     supabase
       .from("competitions")
-      .select("id, title")
-      .not("status", "in", "(draft,finished)")
+      .select("id, title, ends_on")
+      .neq("status", "draft")
       .lte("starts_on", today)
-      .or(`ends_on.is.null,ends_on.gte.${today}`)
+      .or(`ends_on.is.null,ends_on.gte.${reviewStart}`)
       .order("title", { ascending: true })
       .then(({ data, error }) => {
         if (error) {
@@ -133,6 +152,10 @@ export const LancarCorridaButton = ({ userId, userName, onCreated }: LancarCorri
 
   if (!hasPermission(PERMISSION_KEYS.COMPETICOES_EDIT)) return null;
 
+  const today = todayInBrasilia();
+  const inReview = (c: CompetitionOption) => !!c.ends_on && c.ends_on < today;
+  const selectedCompetition = competitions.find((c) => c.id === competitionId);
+  const selectedInReview = !!selectedCompetition && inReview(selectedCompetition);
   const target = distances.find((d) => d.id === distanceId);
   const meters = parseKm(km);
   const seconds = parseDuration(duration);
@@ -164,7 +187,7 @@ export const LancarCorridaButton = ({ userId, userName, onCreated }: LancarCorri
     if (!canSubmit || !meters || !seconds) return;
     setSaving(true);
     try {
-      const { error } = await supabase.rpc("admin_add_manual_run", {
+      const { data, error } = await supabase.rpc("admin_add_manual_run", {
         p_user_id: userId,
         p_competition_id: competitionId,
         p_distance_id: distanceId,
@@ -177,7 +200,11 @@ export const LancarCorridaButton = ({ userId, userName, onCreated }: LancarCorri
       }
 
       toast.success("Corrida lançada", {
-        description: `${userName} entrou no ranking com ${formatDuration(rankedTime ?? seconds)}.`,
+        description:
+          `${userName} entrou no ranking com ${formatDuration(rankedTime ?? seconds)}.` +
+          ((data as { points_recalculated?: boolean } | null)?.points_recalculated
+            ? " Ranking e pontos da etapa recalculados."
+            : ""),
       });
       setOpen(false);
       reset();
@@ -223,7 +250,7 @@ export const LancarCorridaButton = ({ userId, userName, onCreated }: LancarCorri
             </div>
 
             <div className="space-y-2">
-              <Label>Competição em andamento</Label>
+              <Label>Competição (em andamento ou em revisão)</Label>
               <Select value={competitionId} onValueChange={setCompetitionId} disabled={saving}>
                 <SelectTrigger>
                   <SelectValue placeholder="Selecione a competição" />
@@ -232,12 +259,21 @@ export const LancarCorridaButton = ({ userId, userName, onCreated }: LancarCorri
                   {competitions.map((c) => (
                     <SelectItem key={c.id} value={c.id}>
                       {c.title}
+                      {inReview(c) && c.ends_on
+                        ? ` (encerrada, revisão até ${formatDayMonth(addDays(c.ends_on, REVIEW_DAYS))})`
+                        : ""}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
               {open && competitions.length === 0 && (
-                <p className="text-xs text-muted-foreground">Nenhuma competição em andamento hoje.</p>
+                <p className="text-xs text-muted-foreground">Nenhuma competição em andamento ou em revisão hoje.</p>
+              )}
+              {selectedInReview && (
+                <p className="text-xs text-yellow-400">
+                  Competição encerrada, em revisão. A corrida entra com a data do último dia da competição e o
+                  ranking e os pontos do campeonato são recalculados na hora. Isso pode mudar a posição de outros atletas.
+                </p>
               )}
             </div>
 
