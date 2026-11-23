@@ -19,6 +19,7 @@ import {
   type Cupom,
   type LotKind,
   type PacoteOpcao,
+  type ParceiroOpcao,
 } from "@/lib/cupons";
 
 interface CupomDialogProps {
@@ -28,6 +29,7 @@ interface CupomDialogProps {
   cupom: Cupom | null;
   corridas: CorridaOpcao[];
   pacotes: PacoteOpcao[];
+  parceiros: ParceiroOpcao[];
   onSaved: () => void;
 }
 
@@ -49,6 +51,8 @@ interface FormState {
   inicio: string;
   fim: string;
   compraMinima: string;
+  /** "" = cupom da RunLab, sem comissão. */
+  dono: string;
   active: boolean;
 }
 
@@ -70,6 +74,7 @@ const VAZIO: FormState = {
   inicio: "",
   fim: "",
   compraMinima: "",
+  dono: "",
   active: true,
 };
 
@@ -93,6 +98,7 @@ function formDoCupom(c: Cupom): FormState {
     inicio: isoParaDia(c.valid_from),
     fim: isoParaDia(c.valid_until),
     compraMinima: c.min_amount != null ? String(Number(c.min_amount)) : "",
+    dono: c.owner_partner_id ?? "",
     active: c.active,
   };
 }
@@ -110,7 +116,7 @@ const rotulo = "text-xs text-muted-foreground uppercase tracking-wide";
 const campo = "bg-[#1A1A1A] border-0 text-foreground";
 const opcao = "flex items-center gap-2 text-sm text-foreground cursor-pointer";
 
-export const CupomDialog = ({ open, onOpenChange, cupom, corridas, pacotes, onSaved }: CupomDialogProps) => {
+export const CupomDialog = ({ open, onOpenChange, cupom, corridas, pacotes, parceiros, onSaved }: CupomDialogProps) => {
   const { user } = useAuth();
   const [f, setF] = useState<FormState>(VAZIO);
   const [buscaCorrida, setBuscaCorrida] = useState("");
@@ -216,6 +222,7 @@ export const CupomDialog = ({ open, onOpenChange, cupom, corridas, pacotes, onSa
       valid_from: f.inicio ? diaParaIso(f.inicio, false) : null,
       valid_until: f.fim ? diaParaIso(f.fim, true) : null,
       min_amount: minimo,
+      owner_partner_id: f.dono || null,
       active: f.active,
     };
   };
@@ -291,6 +298,29 @@ export const CupomDialog = ({ open, onOpenChange, cupom, corridas, pacotes, onSa
                 disabled={saving}
               />
             </div>
+          </div>
+
+          {/* Dono do cupom: quem recebe a comissão */}
+          <div className="space-y-2">
+            <label className={rotulo} htmlFor="cupom-dono">Comissão vai para</label>
+            <select
+              id="cupom-dono"
+              value={f.dono}
+              onChange={(e) => set("dono", e.target.value)}
+              disabled={saving}
+              className={`${campo} h-10 w-full rounded-md px-3 text-sm`}
+            >
+              <option value="">Ninguém (cupom da RunLab, sem comissão)</option>
+              {parceiros.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.nome}{p.codigo ? ` (${p.codigo})` : ""}
+                </option>
+              ))}
+            </select>
+            <p className="text-xs text-muted-foreground">
+              Quem compra com este cupom gera 10% de comissão para o parceiro escolhido, mesmo que o corredor
+              seja ligado a outro parceiro.
+            </p>
           </div>
 
           {/* Desconto */}

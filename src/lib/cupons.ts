@@ -22,10 +22,19 @@ export interface Cupom {
   lot_kinds: LotKind[] | null;
   /** NULL = todos os pacotes; [] = nenhum pacote. */
   plan_ids: string[] | null;
+  /** Parceiro dono do cupom: recebe a comissão das compras com ele. NULL = cupom da RunLab, sem comissão. */
+  owner_partner_id: string | null;
   active: boolean;
   created_at: string;
   updated_at: string;
   usos: number;
+}
+
+/** Parceiro aprovado (pode ser dono de cupom). */
+export interface ParceiroOpcao {
+  id: string;
+  nome: string;
+  codigo: string | null;
 }
 
 export interface CorridaOpcao {

@@ -23,10 +23,23 @@ import {
   type CorridaOpcao,
   type Cupom,
   type PacoteOpcao,
+  type ParceiroOpcao,
   type StatusCupom,
 } from "@/lib/cupons";
 
 type Filtro = "valendo" | "todos" | "fora";
+type Aba = "cupons" | "parceiros";
+
+/** Código de parceiro: 10% de desconto para quem compra e 10% de comissão para o parceiro. */
+interface CodigoParceiro {
+  id: string;
+  nome: string;
+  codigo: string | null;
+  ativo: boolean;
+  vendas: number;
+  vendido: number;
+  comissao: number;
+}
 
 const FILTROS: { valor: Filtro; texto: string }[] = [
   { valor: "valendo", texto: "Valendo agora" },
@@ -60,6 +73,57 @@ function useCupons() {
         return { ...(resto as unknown as Cupom), usos: coupon_redemptions?.[0]?.count ?? 0 };
       });
     },
+  });
+}
+
+function parceriaValendo(r: { status: string; valid_from: string | null; valid_until: string | null }): boolean {
+  const agora = Date.now();
+  if (r.status !== "approved") return false;
+  if (r.valid_from && new Date(r.valid_from).getTime() > agora) return false;
+  if (r.valid_until && new Date(r.valid_until).getTime() < agora) return false;
+  return true;
+}
+
+/** Parceiros (solicitações aprovadas, inativadas ou vencidas) com código e comissões. */
+function useCodigosParceiros() {
+  return useQuery({
+    queryKey: ["cupons-parceiros"],
+    queryFn: async (): Promise<CodigoParceiro[]> => {
+      const { data: pedidos, error } = await supabase
+        .from("partnership_requests")
+        .select("user_id, status, valid_from, valid_until, created_at")
+        .in("status", ["approved", "inactive", "expired"])
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      const porUsuario = new Map<string, { status: string; valid_from: string | null; valid_until: string | null }>();
+      for (const r of pedidos ?? []) if (!porUsuario.has(r.user_id)) porUsuario.set(r.user_id, r);
+      const ids = Array.from(porUsuario.keys());
+      if (ids.length === 0) return [];
+      const [perfis, comissoes] = await Promise.all([
+        supabase.from("profiles").select("id, full_name, referral_code").in("id", ids),
+        supabase.from("partner_commissions").select("partner_id, payment_amount, commission_amount").in("partner_id", ids),
+      ]);
+      if (perfis.error) throw perfis.error;
+      if (comissoes.error) throw comissoes.error;
+      const soma = new Map<string, { vendas: number; vendido: number; comissao: number }>();
+      for (const c of comissoes.data ?? []) {
+        const atual = soma.get(c.partner_id) ?? { vendas: 0, vendido: 0, comissao: 0 };
+        atual.vendas += 1;
+        atual.vendido += Number(c.payment_amount ?? 0);
+        atual.comissao += Number(c.commission_amount ?? 0);
+        soma.set(c.partner_id, atual);
+      }
+      return (perfis.data ?? [])
+        .map((p) => ({
+          id: p.id as string,
+          nome: (p.full_name as string | null) ?? "Sem nome",
+          codigo: (p.referral_code as string | null) ?? null,
+          ativo: parceriaValendo(porUsuario.get(p.id as string)!),
+          ...(soma.get(p.id as string) ?? { vendas: 0, vendido: 0, comissao: 0 }),
+        }))
+        .sort((a, b) => Number(b.ativo) - Number(a.ativo) || b.vendas - a.vendas || a.nome.localeCompare(b.nome));
+    },
+    staleTime: 60 * 1000,
   });
 }
 
@@ -127,6 +191,71 @@ function ValePara({ cupom, corridas, pacotes }: { cupom: Cupom; corridas: Corrid
   );
 }
 
+function CodigosParceiros({ lista, carregando, erro }: { lista: CodigoParceiro[]; carregando: boolean; erro: unknown }) {
+  return (
+    <div className="space-y-3">
+      <p className="text-sm text-muted-foreground">
+        O código de cada parceiro dá 10% de desconto para quem compra e 10% de comissão para o parceiro. O código é
+        o mesmo do cadastro do parceiro (tela Parceiros).
+      </p>
+      <div className="rounded-lg overflow-hidden border border-border">
+        <Table>
+          <TableHeader>
+            <TableRow className="bg-table-header hover:bg-table-header">
+              <TableHead className="font-medium" style={cabecalho}>Parceiro</TableHead>
+              <TableHead className="font-medium" style={cabecalho}>Código</TableHead>
+              <TableHead className="font-medium" style={cabecalho}>Desconto</TableHead>
+              <TableHead className="font-medium text-center" style={cabecalho}>Compras</TableHead>
+              <TableHead className="font-medium" style={cabecalho}>Vendido</TableHead>
+              <TableHead className="font-medium" style={cabecalho}>Comissão</TableHead>
+              <TableHead className="font-medium" style={cabecalho}>Status</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {carregando && (
+              <TableRow className="bg-table-row">
+                <TableCell colSpan={7} className="text-center text-muted-foreground py-10">
+                  <Loader2 className="h-5 w-5 animate-spin inline mr-2" />
+                  Carregando parceiros...
+                </TableCell>
+              </TableRow>
+            )}
+            {!!erro && (
+              <TableRow className="bg-table-row">
+                <TableCell colSpan={7} className="text-center text-destructive py-10">
+                  Não foi possível carregar os parceiros. {erro instanceof Error ? erro.message : ""}
+                </TableCell>
+              </TableRow>
+            )}
+            {!carregando && !erro && lista.length === 0 && (
+              <TableRow className="bg-table-row">
+                <TableCell colSpan={7} className="text-center text-muted-foreground py-10">
+                  Nenhum parceiro aprovado.
+                </TableCell>
+              </TableRow>
+            )}
+            {lista.map((p) => (
+              <TableRow key={p.id} className="bg-table-row hover:bg-table-row-hover">
+                <TableCell className="text-foreground">{p.nome}</TableCell>
+                <TableCell className="text-foreground font-semibold tracking-wide">{p.codigo ?? "Sem código"}</TableCell>
+                <TableCell className="text-foreground whitespace-nowrap">10%</TableCell>
+                <TableCell className="text-foreground text-center text-base font-semibold">{p.vendas}</TableCell>
+                <TableCell className="text-foreground whitespace-nowrap">{formataReais(p.vendido)}</TableCell>
+                <TableCell className="text-foreground whitespace-nowrap">{formataReais(p.comissao)}</TableCell>
+                <TableCell>
+                  <Badge className={p.ativo ? STATUS.ativo.classe : STATUS.inativo.classe}>
+                    {p.ativo ? "Ativo" : "Inativo"}
+                  </Badge>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
+    </div>
+  );
+}
+
 const Cupons = () => {
   const { hasPermission } = usePermissions();
   const podeEditar = hasPermission("financeiro.edit");
@@ -135,6 +264,14 @@ const Cupons = () => {
   const { data: opcoes } = useOpcoes();
   const corridas = opcoes?.corridas ?? [];
   const pacotes = opcoes?.pacotes ?? [];
+  const { data: codigosParceiros, isLoading: carregandoParceiros, error: erroParceiros } = useCodigosParceiros();
+  const parceiros: ParceiroOpcao[] = (codigosParceiros ?? []).map((p) => ({ id: p.id, nome: p.nome, codigo: p.codigo }));
+  const nomeDoDono = (id: string | null) => {
+    if (!id) return null;
+    const p = codigosParceiros?.find((x) => x.id === id);
+    return p ? `${p.nome}${p.codigo ? ` (${p.codigo})` : ""}` : "Parceiro";
+  };
+  const [aba, setAba] = useState<Aba>("cupons");
 
   const [filtro, setFiltro] = useState<Filtro>("valendo");
   const [busca, setBusca] = useState("");
@@ -186,12 +323,13 @@ const Cupons = () => {
       <main className="container mx-auto px-6 py-8 pt-24 space-y-6">
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-semibold text-foreground">Cupons de desconto</h1>
+            <h1 className="text-2xl font-semibold text-foreground">Cupons e códigos</h1>
             <p className="text-sm text-muted-foreground">
-              Cupons aceitos no checkout de inscrições e pacotes. Inativar não apaga o histórico de usos.
+              Tudo que a pessoa digita no campo "Cupom de desconto" do checkout: cupons da RunLab e códigos de
+              parceiros. Um código por compra; a comissão vai para o dono do código usado.
             </p>
           </div>
-          {podeEditar && (
+          {podeEditar && aba === "cupons" && (
             <Button
               onClick={abrirNovo}
               className="border-0 hover:brightness-90 transition-all gap-2"
@@ -203,6 +341,31 @@ const Cupons = () => {
           )}
         </div>
 
+        <div className="flex gap-6 border-b border-border">
+          {(
+            [
+              { valor: "cupons", texto: "Cupons" },
+              { valor: "parceiros", texto: "Códigos de parceiros" },
+            ] as { valor: Aba; texto: string }[]
+          ).map((item) => (
+            <button
+              key={item.valor}
+              onClick={() => setAba(item.valor)}
+              className={`-mb-px border-b-2 pb-2 text-sm transition-colors ${
+                aba === item.valor
+                  ? "border-[#CCF725] font-medium text-foreground"
+                  : "border-transparent text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              {item.texto}
+            </button>
+          ))}
+        </div>
+
+        {aba === "parceiros" ? (
+          <CodigosParceiros lista={codigosParceiros ?? []} carregando={carregandoParceiros} erro={erroParceiros} />
+        ) : (
+        <>
         <div className="flex flex-wrap items-center gap-3">
           <div className="flex rounded-md bg-[#262626] p-1">
             {FILTROS.map((item) => (
@@ -235,6 +398,7 @@ const Cupons = () => {
                 <TableHead className="font-medium" style={cabecalho}>Código</TableHead>
                 <TableHead className="font-medium" style={cabecalho}>Desconto</TableHead>
                 <TableHead className="font-medium min-w-[220px]" style={cabecalho}>Vale para</TableHead>
+                <TableHead className="font-medium" style={cabecalho}>Comissão para</TableHead>
                 <TableHead className="font-medium" style={cabecalho}>Uso por CPF</TableHead>
                 <TableHead className="font-medium text-center" style={cabecalho}>Vezes usado</TableHead>
                 <TableHead className="font-medium" style={cabecalho}>Limite total</TableHead>
@@ -246,7 +410,7 @@ const Cupons = () => {
             <TableBody>
               {isLoading && (
                 <TableRow className="bg-table-row">
-                  <TableCell colSpan={9} className="text-center text-muted-foreground py-10">
+                  <TableCell colSpan={10} className="text-center text-muted-foreground py-10">
                     <Loader2 className="h-5 w-5 animate-spin inline mr-2" />
                     Carregando cupons...
                   </TableCell>
@@ -254,14 +418,14 @@ const Cupons = () => {
               )}
               {error && (
                 <TableRow className="bg-table-row">
-                  <TableCell colSpan={9} className="text-center text-destructive py-10">
+                  <TableCell colSpan={10} className="text-center text-destructive py-10">
                     Não foi possível carregar os cupons. {error instanceof Error ? error.message : ""}
                   </TableCell>
                 </TableRow>
               )}
               {!isLoading && !error && lista.length === 0 && (
                 <TableRow className="bg-table-row">
-                  <TableCell colSpan={9} className="text-center text-muted-foreground py-10">
+                  <TableCell colSpan={10} className="text-center text-muted-foreground py-10">
                     Nenhum cupom neste filtro.
                   </TableCell>
                 </TableRow>
@@ -286,6 +450,9 @@ const Cupons = () => {
                     </TableCell>
                     <TableCell className="text-foreground text-sm">
                       <ValePara cupom={cupom} corridas={corridas} pacotes={pacotes} />
+                    </TableCell>
+                    <TableCell className="text-foreground text-sm">
+                      {nomeDoDono(cupom.owner_partner_id) ?? <span className="text-muted-foreground">Ninguém</span>}
                     </TableCell>
                     <TableCell className="text-foreground whitespace-nowrap">{formataUsoPorCpf(cupom)}</TableCell>
                     <TableCell className="text-foreground whitespace-nowrap text-center text-base font-semibold">
@@ -333,6 +500,8 @@ const Cupons = () => {
             </TableBody>
           </Table>
         </div>
+        </>
+        )}
       </main>
 
       <CupomDialog
@@ -341,6 +510,7 @@ const Cupons = () => {
         cupom={editando}
         corridas={corridas}
         pacotes={pacotes}
+        parceiros={parceiros}
         onSaved={() => {
           toast.success(editando ? "Cupom atualizado" : "Cupom criado");
           recarrega();
