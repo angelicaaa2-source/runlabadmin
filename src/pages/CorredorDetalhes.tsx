@@ -9,7 +9,7 @@ import { useCorredorDetails } from "@/hooks/useCorredorDetails";
 import { ExcluirContaButton } from "@/components/ExcluirContaButton";
 import { AdicionarCreditosButton } from "@/components/AdicionarCreditosButton";
 import { LancarCorridaButton } from "@/components/LancarCorridaButton";
-import { CorrigirCorridaButton } from "@/components/CorrigirCorridaButton";
+import { HistoricoCorridas } from "@/components/HistoricoCorridas";
 import { RemoverCreditosButton } from "@/components/RemoverCreditosButton";
 
 function formatPrice(value: number): string {
@@ -101,7 +101,6 @@ const CorredorDetalhes = () => {
           </Link>
           <div className="flex items-center gap-2">
             <LancarCorridaButton userId={corredor.id} userName={corredor.name} onCreated={refetch} />
-            <CorrigirCorridaButton userId={corredor.id} userName={corredor.name} />
             <ExcluirContaButton userId={corredor.id} userName={corredor.name} redirectTo="/corredores" />
           </div>
         </div>
@@ -261,6 +260,9 @@ const CorredorDetalhes = () => {
             </Card>
           </div>
         </div>
+
+        {/* Histórico de corridas (todas as tentativas, com ranking e "Corrigir") */}
+        <HistoricoCorridas userId={corredor.id} userName={corredor.name} />
 
         {/* Histórico de Créditos */}
         <div className="mb-6">
