@@ -36,6 +36,8 @@ interface ProdutoLoja {
   price: number | null;
   is_visible: boolean;
   show_in_general_checkout: boolean;
+  /** Opção na Inscrição com kit (modelo e tamanho/cor escolhidos no checkout). */
+  in_kit: boolean;
   page_slug: string | null;
   description: string | null;
   image_url: string | null;
@@ -48,7 +50,6 @@ const CATEGORIAS: { id: ProdutoLoja["category"]; titulo: string }[] = [
   { id: "camisa", titulo: "Camisas" },
   { id: "bone", titulo: "Bonés" },
   { id: "medalha", titulo: "Medalhas" },
-  { id: "outro", titulo: "Outros" },
 ];
 
 /** Categorias em que cada opção (cor ou fita) tem foto própria. */
@@ -119,7 +120,7 @@ function useProdutosLoja() {
       const { data, error } = await supabase
         .from("store_products")
         .select(
-          "id, category, name, variation_label, dash_active, price, is_visible, show_in_general_checkout, page_slug, description, image_url, sort_order, synced_at, store_product_options(id, name, stock, dash_active, is_visible, image_url, sort_order)",
+          "id, category, name, variation_label, dash_active, price, is_visible, show_in_general_checkout, in_kit, page_slug, description, image_url, sort_order, synced_at, store_product_options(id, name, stock, dash_active, is_visible, image_url, sort_order)",
         )
         .order("sort_order", { ascending: true })
         .order("name", { ascending: true });
@@ -328,7 +329,7 @@ function CartaoProduto({
     }
   };
 
-  const alterna = async (campo: "is_visible" | "show_in_general_checkout", valor: boolean) => {
+  const alterna = async (campo: "is_visible" | "show_in_general_checkout" | "in_kit", valor: boolean) => {
     if (campo === "is_visible" && valor && produto.price == null) {
       toast.error("Coloque o preço e salve antes de mostrar no checkout.");
       return;
@@ -372,6 +373,9 @@ function CartaoProduto({
           </Badge>
           {produto.show_in_general_checkout && (
             <Badge className="bg-[#CCF725]/15 text-[#CCF725] hover:bg-[#CCF725]/15">No checkout geral</Badge>
+          )}
+          {produto.in_kit && (
+            <Badge className="bg-[#5BC0EB]/15 text-[#5BC0EB] hover:bg-[#5BC0EB]/15">No kit</Badge>
           )}
           {!produto.dash_active && (
             <Badge className="bg-destructive/15 text-destructive hover:bg-destructive/15">Desativado no Dash</Badge>
@@ -424,6 +428,17 @@ function CartaoProduto({
             <span>
               Também no checkout geral
               <span className="block text-xs text-muted-foreground">Botão Adicionar junto das inscrições</span>
+            </span>
+          </label>
+          <label className="flex items-start gap-2 text-sm text-foreground">
+            <Switch
+              checked={produto.in_kit}
+              disabled={travado}
+              onCheckedChange={(v) => void alterna("in_kit", v)}
+            />
+            <span>
+              Faz parte do kit
+              <span className="block text-xs text-muted-foreground">Vira opção na Inscrição com kit (modelo e tamanho)</span>
             </span>
           </label>
         </div>
@@ -519,7 +534,7 @@ export function ProdutosLoja({ podeEditar }: { podeEditar: boolean }) {
       <div>
         <h2 className="text-xl font-semibold text-foreground">Produtos</h2>
         <p className="text-sm text-muted-foreground">
-          Camisas, bonés, medalhas e outros itens do estoque do Dash. O cadastro e o estoque são do Dash; aqui você
+          Camisas, bonés e medalhas do estoque do Dash (prêmios em "Outros" ficam de fora). O cadastro e o estoque são do Dash; aqui você
           decide o que fica à venda, o preço e as fotos. Produto novo chega escondido. Clique na linha para abrir.
         </p>
         <p className="mt-1 text-xs text-muted-foreground">
