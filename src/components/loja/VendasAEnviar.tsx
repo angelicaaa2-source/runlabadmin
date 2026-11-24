@@ -394,7 +394,18 @@ export function VendasAEnviar() {
                         className="mt-0.5 h-4 w-4 accent-[#CCF725]"
                       />
                     </td>
-                    <td className="whitespace-nowrap px-3 py-2 tabular-nums text-muted-foreground">{formataData(v.sold_at)}</td>
+                    <td className="whitespace-nowrap px-3 py-2 tabular-nums text-muted-foreground">
+                      {v.sold_at ? (
+                        <>
+                          <span className="block">{new Date(v.sold_at).toLocaleDateString("pt-BR")}</span>
+                          <span className="block text-xs">
+                            {new Date(v.sold_at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+                          </span>
+                        </>
+                      ) : (
+                        "-"
+                      )}
+                    </td>
                     <td className="px-3 py-2 text-foreground">
                       {v.cliente ?? "-"}
                       <span className="block text-xs text-muted-foreground">{v.email}</span>
