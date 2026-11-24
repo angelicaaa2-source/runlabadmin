@@ -19,9 +19,9 @@ export const MEDALHA_TIPOS = ["image/png", "image/jpeg", "image/webp"];
 export const MEDALHA_MAX_BYTES = 2 * 1024 * 1024;
 
 export const MEDALHA_ERROS: [string, string][] = [
-  ["FORBIDDEN", "Você não tem permissão para cadastrar a medalha da corrida."],
-  ["IMAGE_REQUIRED", "Escolha a imagem da medalha."],
-  ["NAME_INVALID", "O nome da medalha precisa ter de 3 a 60 letras."],
+  ["FORBIDDEN", "Você não tem permissão para cadastrar o badge da corrida."],
+  ["IMAGE_REQUIRED", "Escolha a imagem do badge."],
+  ["NAME_INVALID", "O nome do badge precisa ter de 3 a 60 letras."],
   ["DESCRIPTION_TOO_LONG", "A descrição pode ter no máximo 200 letras."],
 ];
 
@@ -73,7 +73,7 @@ export async function salvarMedalha(
     const ext = e.arquivo.type === "image/png" ? "png" : e.arquivo.type === "image/webp" ? "webp" : "jpg";
     const path = `competitions/${competitionId}/medalha-${Date.now()}.${ext}`;
     const { error: upErr } = await supabase.storage.from("sistema").upload(path, e.arquivo, { contentType: e.arquivo.type });
-    if (upErr) throw new Error(`Falha ao enviar a imagem da medalha: ${upErr.message}`);
+    if (upErr) throw new Error(`Falha ao enviar a imagem do badge: ${upErr.message}`);
     imageUrl = supabase.storage.from("sistema").getPublicUrl(path).data.publicUrl;
   }
   const nome = (e.nome.trim() || tituloCorrida.trim()).slice(0, 60);

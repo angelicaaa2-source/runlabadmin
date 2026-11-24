@@ -200,7 +200,7 @@ const CadastrarCampeonato = () => {
     const data = form.getValues();
     const erroMedalha = erroDoArquivo(medalha.arquivo);
     if (erroMedalha) {
-      toast.error(`Medalha da corrida: ${erroMedalha}`);
+      toast.error(`Badge da corrida: ${erroMedalha}`);
       return;
     }
     if (!data.nome?.trim()) {
@@ -380,7 +380,7 @@ const CadastrarCampeonato = () => {
         try {
           await salvarMedalha(competitionId, medalha, data.nome);
         } catch (e) {
-          toast.error("Corrida salva, mas a medalha não foi cadastrada", {
+          toast.error("Corrida salva, mas o badge não foi cadastrado", {
             description: `${mensagemMedalha(e)} Dá para cadastrar depois em Editar.`,
           });
         }
@@ -1171,9 +1171,9 @@ const CadastrarCampeonato = () => {
             </div>
           </div>
 
-          {/* Medalha da corrida */}
+          {/* Badge da corrida (não é a medalha física) */}
           <div className="space-y-6 bg-card border border-border/50 rounded-2xl p-8">
-            <h2 className="text-lg font-semibold text-foreground mb-6">Medalha da corrida (opcional)</h2>
+            <h2 className="text-lg font-semibold text-foreground mb-6">Badge da corrida (opcional)</h2>
             <MedalhaCorridaCampos value={medalha} onChange={setMedalha} tituloCorrida={watch("nome") ?? ""} disabled={isSubmitting} />
           </div>
 
