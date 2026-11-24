@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
+import { ParceiroPerfilSheet } from "@/components/ParceiroPerfilSheet";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Pencil, Plus, Search, Loader2 } from "lucide-react";
@@ -85,16 +86,16 @@ function parceriaValendo(r: { status: string; valid_from: string | null; valid_u
   return true;
 }
 
-/** Nome do parceiro que abre a tela dele (dados, comissões, repasses), com volta para Cupons. */
-function LinkParceiro({ id, nome }: { id: string; nome: string }) {
+/** Nome do parceiro que abre o painel lateral com o perfil dele, sem sair de Cupons. */
+function LinkParceiro({ id, nome, onAbrir }: { id: string; nome: string; onAbrir: (p: { id: string; nome: string }) => void }) {
   return (
-    <Link
-      to={`/parceiros/${id}`}
-      state={{ voltarPara: "/cupons?aba=parceiros", voltarNome: "Cupons" }}
-      className="underline decoration-muted-foreground/50 underline-offset-4 hover:text-primary hover:decoration-primary"
+    <button
+      type="button"
+      onClick={() => onAbrir({ id, nome })}
+      className="text-left underline decoration-muted-foreground/50 underline-offset-4 hover:text-primary hover:decoration-primary"
     >
       {nome}
-    </Link>
+    </button>
   );
 }
 
@@ -205,7 +206,17 @@ function ValePara({ cupom, corridas, pacotes }: { cupom: Cupom; corridas: Corrid
   );
 }
 
-function CodigosParceiros({ lista, carregando, erro }: { lista: CodigoParceiro[]; carregando: boolean; erro: unknown }) {
+function CodigosParceiros({
+  lista,
+  carregando,
+  erro,
+  onAbrir,
+}: {
+  lista: CodigoParceiro[];
+  carregando: boolean;
+  erro: unknown;
+  onAbrir: (p: { id: string; nome: string }) => void;
+}) {
   return (
     <div className="space-y-3">
       <p className="text-sm text-muted-foreground">
@@ -251,7 +262,7 @@ function CodigosParceiros({ lista, carregando, erro }: { lista: CodigoParceiro[]
             {lista.map((p) => (
               <TableRow key={p.id} className="bg-table-row hover:bg-table-row-hover">
                 <TableCell className="text-foreground">
-                  <LinkParceiro id={p.id} nome={p.nome} />
+                  <LinkParceiro id={p.id} nome={p.nome} onAbrir={onAbrir} />
                 </TableCell>
                 <TableCell className="text-foreground font-semibold tracking-wide">{p.codigo ?? "Sem código"}</TableCell>
                 <TableCell className="text-foreground whitespace-nowrap">10%</TableCell>
@@ -288,6 +299,7 @@ const Cupons = () => {
     return p ? `${p.nome}${p.codigo ? ` (${p.codigo})` : ""}` : "Parceiro";
   };
   const [params, setParams] = useSearchParams();
+  const [painelParceiro, setPainelParceiro] = useState<{ id: string; nome: string } | null>(null);
   const aba: Aba = params.get("aba") === "parceiros" ? "parceiros" : "cupons";
   const setAba = (nova: Aba) => setParams(nova === "parceiros" ? { aba: "parceiros" } : {}, { replace: true });
 
@@ -381,7 +393,7 @@ const Cupons = () => {
         </div>
 
         {aba === "parceiros" ? (
-          <CodigosParceiros lista={codigosParceiros ?? []} carregando={carregandoParceiros} erro={erroParceiros} />
+          <CodigosParceiros lista={codigosParceiros ?? []} carregando={carregandoParceiros} erro={erroParceiros} onAbrir={setPainelParceiro} />
         ) : (
         <>
         <div className="flex flex-wrap items-center gap-3">
@@ -471,7 +483,11 @@ const Cupons = () => {
                     </TableCell>
                     <TableCell className="text-foreground text-sm">
                       {cupom.owner_partner_id && nomeDoDono(cupom.owner_partner_id) ? (
-                        <LinkParceiro id={cupom.owner_partner_id} nome={nomeDoDono(cupom.owner_partner_id)!} />
+                        <LinkParceiro
+                          id={cupom.owner_partner_id}
+                          nome={nomeDoDono(cupom.owner_partner_id)!}
+                          onAbrir={setPainelParceiro}
+                        />
                       ) : (
                         <span className="text-muted-foreground">Ninguém</span>
                       )}
@@ -537,6 +553,12 @@ const Cupons = () => {
           toast.success(editando ? "Cupom atualizado" : "Cupom criado");
           recarrega();
         }}
+      />
+
+      <ParceiroPerfilSheet
+        userId={painelParceiro?.id ?? null}
+        userName={painelParceiro?.nome}
+        onClose={() => setPainelParceiro(null)}
       />
     </div>
   );
