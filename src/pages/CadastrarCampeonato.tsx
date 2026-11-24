@@ -22,6 +22,8 @@ import { supabase } from "@/lib/supabase";
 import { localDateFromCalendar } from "@/lib/localDate";
 import { PublicacaoAppCampos } from "@/components/PublicacaoAppCampos";
 import { MedalhaCorridaCampos } from "@/components/MedalhaCorridaCampos";
+import { PatrocinadoresCampos } from "@/components/PatrocinadoresCampos";
+import { erroDaLista, mensagemPatrocinio, salvarPatrocinadores, type ItemPatrocinador } from "@/lib/patrocinadores";
 import { erroDoArquivo, mensagemMedalha, salvarMedalha, type EscolhaMedalha } from "@/lib/medalha";
 import { erroDaEscolha, escolhaIso, formatPublishAt, type EscolhaPublicacao, type ModoPublicacao } from "@/lib/publicacao";
 
@@ -92,6 +94,7 @@ const CadastrarCampeonato = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [publicacao, setPublicacao] = useState<EscolhaPublicacao>({ modo: "now", data: "", hora: "08:00" });
   const [medalha, setMedalha] = useState<EscolhaMedalha>({ arquivo: null, nome: "", descricao: "" });
+  const [patrocinadores, setPatrocinadores] = useState<ItemPatrocinador[]>([]);
   const [documento1, setDocumento1] = useState<File | null>(null);
   const [documento2, setDocumento2] = useState<File | null>(null);
   const [documento3, setDocumento3] = useState<File | null>(null);
@@ -198,6 +201,11 @@ const CadastrarCampeonato = () => {
   const saveCompetition = async (modo: ModoPublicacao, publishAtIso: string | null = null) => {
     const status = modo === "now" ? "open" : "draft";
     const data = form.getValues();
+    const erroPatrocinio = erroDaLista(patrocinadores);
+    if (erroPatrocinio) {
+      toast.error(erroPatrocinio);
+      return;
+    }
     const erroMedalha = erroDoArquivo(medalha.arquivo);
     if (erroMedalha) {
       toast.error(`Badge da corrida: ${erroMedalha}`);
@@ -373,6 +381,17 @@ const CadastrarCampeonato = () => {
             sort_order: i,
           });
         if (insertDocError) throw insertDocError;
+      }
+
+      // Patrocinadores (opcional): depois da corrida salva.
+      if (patrocinadores.length > 0) {
+        try {
+          await salvarPatrocinadores(competitionId, patrocinadores);
+        } catch (e) {
+          toast.error("Corrida salva, mas os patrocinadores não", {
+            description: `${mensagemPatrocinio(e)} Dá para cadastrar depois em Editar.`,
+          });
+        }
       }
 
       // Medalha da corrida (opcional): depois da corrida salva, antes da data de publicação.
@@ -1169,6 +1188,12 @@ const CadastrarCampeonato = () => {
                 </div>
               ))}
             </div>
+          </div>
+
+          {/* Patrocinadores */}
+          <div className="space-y-6 bg-card border border-border/50 rounded-2xl p-8">
+            <h2 className="text-lg font-semibold text-foreground mb-6">Patrocinadores (opcional)</h2>
+            <PatrocinadoresCampos itens={patrocinadores} onChange={setPatrocinadores} disabled={isSubmitting} />
           </div>
 
           {/* Badge da corrida (não é a medalha física) */}
