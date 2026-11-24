@@ -21,6 +21,8 @@ import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
 import { localDateFromCalendar } from "@/lib/localDate";
 import { PublicacaoAppCampos } from "@/components/PublicacaoAppCampos";
+import { MedalhaCorridaCampos } from "@/components/MedalhaCorridaCampos";
+import { erroDoArquivo, mensagemMedalha, salvarMedalha, type EscolhaMedalha } from "@/lib/medalha";
 import { erroDaEscolha, escolhaIso, formatPublishAt, type EscolhaPublicacao, type ModoPublicacao } from "@/lib/publicacao";
 
 const formSchema = z.object({
@@ -89,6 +91,7 @@ const CadastrarCampeonato = () => {
   ]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [publicacao, setPublicacao] = useState<EscolhaPublicacao>({ modo: "now", data: "", hora: "08:00" });
+  const [medalha, setMedalha] = useState<EscolhaMedalha>({ arquivo: null, nome: "", descricao: "" });
   const [documento1, setDocumento1] = useState<File | null>(null);
   const [documento2, setDocumento2] = useState<File | null>(null);
   const [documento3, setDocumento3] = useState<File | null>(null);
@@ -195,6 +198,11 @@ const CadastrarCampeonato = () => {
   const saveCompetition = async (modo: ModoPublicacao, publishAtIso: string | null = null) => {
     const status = modo === "now" ? "open" : "draft";
     const data = form.getValues();
+    const erroMedalha = erroDoArquivo(medalha.arquivo);
+    if (erroMedalha) {
+      toast.error(`Medalha da corrida: ${erroMedalha}`);
+      return;
+    }
     if (!data.nome?.trim()) {
       toast.error("Nome é obrigatório");
       return;
@@ -365,6 +373,17 @@ const CadastrarCampeonato = () => {
             sort_order: i,
           });
         if (insertDocError) throw insertDocError;
+      }
+
+      // Medalha da corrida (opcional): depois da corrida salva, antes da data de publicação.
+      if (medalha.arquivo) {
+        try {
+          await salvarMedalha(competitionId, medalha, data.nome);
+        } catch (e) {
+          toast.error("Corrida salva, mas a medalha não foi cadastrada", {
+            description: `${mensagemMedalha(e)} Dá para cadastrar depois em Editar.`,
+          });
+        }
       }
 
       if (modo === "schedule" && publishAtIso) {
@@ -1150,6 +1169,12 @@ const CadastrarCampeonato = () => {
                 </div>
               ))}
             </div>
+          </div>
+
+          {/* Medalha da corrida */}
+          <div className="space-y-6 bg-card border border-border/50 rounded-2xl p-8">
+            <h2 className="text-lg font-semibold text-foreground mb-6">Medalha da corrida (opcional)</h2>
+            <MedalhaCorridaCampos value={medalha} onChange={setMedalha} tituloCorrida={watch("nome") ?? ""} disabled={isSubmitting} />
           </div>
 
           {/* Publicação no app */}
