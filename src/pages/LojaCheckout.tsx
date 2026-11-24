@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useRef, useState, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { ImageUp, Loader2, RotateCcw } from "lucide-react";
@@ -8,6 +8,7 @@ import { supabase } from "@/lib/supabase";
 import { usePermissions } from "@/hooks/usePermissions";
 import { ProdutosLoja } from "@/components/loja/ProdutosLoja";
 import { VendasAEnviar } from "@/components/loja/VendasAEnviar";
+import { useMarcaLojaVista } from "@/hooks/useVendasNovasLoja";
 
 /**
  * Loja do checkout (começo da fase 3 do novo checkout, 23/11/2026): foto de
@@ -178,6 +179,12 @@ const LojaCheckout = () => {
   const podeEditar = hasPermission("financeiro.edit");
   const queryClient = useQueryClient();
   const { data: planos, isLoading, error } = usePlanos();
+  const marcaLojaVista = useMarcaLojaVista();
+
+  // Abriu a Loja do checkout: apaga a bolinha do menu até chegar venda nova.
+  useEffect(() => {
+    void marcaLojaVista();
+  }, [marcaLojaVista]);
 
   return (
     <div className="min-h-screen bg-background">
@@ -190,6 +197,9 @@ const LojaCheckout = () => {
             preferência quadradas. A troca aparece no checkout na hora.
           </p>
         </div>
+        {/* Primeiro bloco: é o que se atualiza sozinho (vendas pagas chegando). */}
+        <VendasAEnviar />
+
         <h2 className="text-xl font-semibold text-foreground">Inscrições</h2>
         {isLoading && (
           <p className="text-muted-foreground">
@@ -214,7 +224,6 @@ const LojaCheckout = () => {
         </div>
         <ProdutosLoja podeEditar={podeEditar} />
 
-        <VendasAEnviar />
       </main>
     </div>
   );

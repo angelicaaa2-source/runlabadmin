@@ -5,6 +5,7 @@ import { NavLink } from "@/components/NavLink";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePermissions } from "@/hooks/usePermissions";
+import { useVendasNovasLoja } from "@/hooks/useVendasNovasLoja";
 import runlabLogo from "@/assets/runlab-logo-new.png";
 import {
   DropdownMenu,
@@ -18,6 +19,7 @@ export const Header = () => {
   const navigate = useNavigate();
   const { user, profile, signOut } = useAuth();
   const { hasPermission } = usePermissions();
+  const { data: vendasNovas = 0 } = useVendasNovasLoja(hasPermission("financeiro.view"));
   const isParceirosActive = location.pathname.startsWith("/parceiros");
 
   const displayName =
@@ -73,7 +75,20 @@ export const Header = () => {
               className="text-muted-foreground transition-colors"
               activeClassName="text-primary font-medium border-b-2 border-primary pb-1 hover:text-primary"
             >
-              Loja do checkout
+              <span className="relative">
+                Loja do checkout
+                {vendasNovas > 0 && (
+                  <>
+                    <span
+                      className="absolute -right-2.5 -top-1 h-2 w-2 rounded-full bg-[#CCF725] ring-2 ring-background"
+                      aria-hidden="true"
+                    />
+                    <span className="sr-only">
+                      ({vendasNovas === 1 ? "1 venda nova a enviar" : `${vendasNovas} vendas novas a enviar`})
+                    </span>
+                  </>
+                )}
+              </span>
             </NavLink>
           )}
           {hasPermission("usuarios.view") && (
