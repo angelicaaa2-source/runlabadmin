@@ -1,7 +1,7 @@
 import { useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { ImageUp, Loader2, Trash2 } from "lucide-react";
+import { ImageUp, Loader2, Trash2, ChevronDown } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
@@ -289,10 +289,15 @@ function CartaoProduto({
   produto,
   podeEditar,
   onMudou,
+  aberto,
+  onAlterna,
 }: {
   produto: ProdutoLoja;
   podeEditar: boolean;
   onMudou: () => void;
+  /** Linha recolhida mostra só nome e situação; a seta abre o resto. */
+  aberto: boolean;
+  onAlterna: () => void;
 }) {
   const [preco, setPreco] = useState(precoParaTexto(produto.price));
   const [descricao, setDescricao] = useState(produto.description ?? "");
@@ -329,7 +334,7 @@ function CartaoProduto({
       return;
     }
     if (campo === "show_in_general_checkout" && valor && !produto.is_visible) {
-      toast.error("Ligue \"Visível no checkout\" antes.");
+      toast.error("Ligue \"À venda\" antes.");
       return;
     }
     setSalvando(true);
@@ -347,7 +352,38 @@ function CartaoProduto({
   };
 
   return (
-    <div className="space-y-4 rounded-lg border border-border bg-table-row p-4">
+    <div className="rounded-lg border border-border bg-table-row">
+      <button
+        type="button"
+        onClick={onAlterna}
+        aria-expanded={aberto}
+        className="flex w-full items-center gap-3 px-4 py-3 text-left"
+      >
+        <span className="flex-1 font-semibold text-foreground">{produto.name}</span>
+        <span className="flex flex-wrap justify-end gap-2">
+          <Badge
+            className={
+              produto.is_visible
+                ? "bg-[#CCF725]/15 text-[#CCF725] hover:bg-[#CCF725]/15"
+                : "bg-muted text-muted-foreground hover:bg-muted"
+            }
+          >
+            {produto.is_visible ? "À venda" : "Escondido"}
+          </Badge>
+          {produto.show_in_general_checkout && (
+            <Badge className="bg-[#CCF725]/15 text-[#CCF725] hover:bg-[#CCF725]/15">No checkout geral</Badge>
+          )}
+          {!produto.dash_active && (
+            <Badge className="bg-destructive/15 text-destructive hover:bg-destructive/15">Desativado no Dash</Badge>
+          )}
+        </span>
+        <ChevronDown
+          className={`h-5 w-5 shrink-0 text-muted-foreground transition-transform ${aberto ? "rotate-180" : ""}`}
+          aria-hidden="true"
+        />
+      </button>
+      {aberto && (
+    <div className="space-y-4 border-t border-border p-4">
       <div className="flex flex-wrap items-start gap-4">
         <BotaoFoto
           url={produto.image_url}
@@ -359,48 +395,36 @@ function CartaoProduto({
           }}
         />
         <div className="min-w-[220px] flex-1 space-y-1">
-          <p className="font-semibold text-foreground">{produto.name}</p>
           <p className="text-sm text-muted-foreground">
             {produto.variation_label}: {produto.store_product_options.map((o) => o.name).join(", ")} · {pecas}{" "}
             {pecas === 1 ? "peça" : "peças"} no Dash
           </p>
-          <div className="flex flex-wrap gap-2">
-            <Badge
-              className={
-                produto.is_visible
-                  ? "bg-[#CCF725]/15 text-[#CCF725] hover:bg-[#CCF725]/15"
-                  : "bg-muted text-muted-foreground hover:bg-muted"
-              }
-            >
-              {produto.is_visible ? "No checkout" : "Escondido"}
-            </Badge>
-            {produto.show_in_general_checkout && (
-              <Badge className="bg-[#CCF725]/15 text-[#CCF725] hover:bg-[#CCF725]/15">Botão no checkout geral</Badge>
-            )}
-            {!produto.dash_active && (
-              <Badge className="bg-destructive/15 text-destructive hover:bg-destructive/15">Desativado no Dash</Badge>
-            )}
-          </div>
           {produto.page_slug && (
             <p className="text-xs text-muted-foreground">Página própria: /loja/{produto.page_slug} (entra na etapa 2)</p>
           )}
         </div>
         <div className="flex flex-col gap-3">
-          <label className="flex items-center gap-2 text-sm text-foreground">
+          <label className="flex items-start gap-2 text-sm text-foreground">
             <Switch
               checked={produto.is_visible}
               disabled={travado}
               onCheckedChange={(v) => void alterna("is_visible", v)}
             />
-            Visível no checkout
+            <span>
+              À venda
+              <span className="block text-xs text-muted-foreground">Página própria do item e opcional nos checkouts de corrida</span>
+            </span>
           </label>
-          <label className="flex items-center gap-2 text-sm text-foreground">
+          <label className="flex items-start gap-2 text-sm text-foreground">
             <Switch
               checked={produto.show_in_general_checkout}
               disabled={travado || !produto.is_visible}
               onCheckedChange={(v) => void alterna("show_in_general_checkout", v)}
             />
-            Aparece no checkout geral (botão Adicionar)
+            <span>
+              Também no checkout geral
+              <span className="block text-xs text-muted-foreground">Botão Adicionar junto das inscrições</span>
+            </span>
           </label>
         </div>
       </div>
@@ -467,6 +491,8 @@ function CartaoProduto({
         </p>
       </div>
     </div>
+      )}
+    </div>
   );
 }
 
@@ -474,6 +500,14 @@ export function ProdutosLoja({ podeEditar }: { podeEditar: boolean }) {
   const queryClient = useQueryClient();
   const { data: produtos, isLoading, error } = useProdutosLoja();
   const recarrega = () => queryClient.invalidateQueries({ queryKey: ["loja-produtos"] });
+  const [abertos, setAbertos] = useState<Set<string>>(new Set());
+  const alterna = (id: string) =>
+    setAbertos((atual) => {
+      const novo = new Set(atual);
+      if (novo.has(id)) novo.delete(id);
+      else novo.add(id);
+      return novo;
+    });
   const ultimaCopia = (produtos ?? [])
     .map((p) => p.synced_at)
     .filter((d): d is string => !!d)
@@ -486,7 +520,7 @@ export function ProdutosLoja({ podeEditar }: { podeEditar: boolean }) {
         <h2 className="text-xl font-semibold text-foreground">Produtos</h2>
         <p className="text-sm text-muted-foreground">
           Camisas, bonés, medalhas e outros itens do estoque do Dash. O cadastro e o estoque são do Dash; aqui você
-          decide o que aparece no checkout, o preço e as fotos. Produto novo chega escondido.
+          decide o que fica à venda, o preço e as fotos. Produto novo chega escondido. Clique na linha para abrir.
         </p>
         <p className="mt-1 text-xs text-muted-foreground">
           {ultimaCopia ? `Última cópia do estoque do Dash em ${formataData(ultimaCopia)}.` : "Estoque do Dash ainda não copiado."}
@@ -510,7 +544,14 @@ export function ProdutosLoja({ podeEditar }: { podeEditar: boolean }) {
           <div key={c.id} className="space-y-3">
             <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">{c.titulo}</h3>
             {lista.map((p) => (
-              <CartaoProduto key={`${p.id}-${p.price}-${p.description}`} produto={p} podeEditar={podeEditar} onMudou={recarrega} />
+              <CartaoProduto
+                key={`${p.id}-${p.price}-${p.description}`}
+                produto={p}
+                podeEditar={podeEditar}
+                onMudou={recarrega}
+                aberto={abertos.has(p.id)}
+                onAlterna={() => alterna(p.id)}
+              />
             ))}
           </div>
         );

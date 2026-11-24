@@ -45,7 +45,8 @@ function usePlanos() {
       const { data, error } = await supabase
         .from("plans")
         .select("id, slug, name, price, is_active, has_kit, image_url, sort_order")
-        .order("is_active", { ascending: false })
+        // Só o que está à venda (o RunLab Elite, desativado, não aparece).
+        .eq("is_active", true)
         .order("sort_order", { ascending: true });
       if (error) throw error;
       return (data ?? []).map((p) => ({ ...p, price: Number(p.price) })) as PlanoLoja[];
