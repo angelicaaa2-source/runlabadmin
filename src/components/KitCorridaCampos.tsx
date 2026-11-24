@@ -42,6 +42,11 @@ export function KitCorridaCampos({
   const medalha = medalhas.find((m) => m.id === value.medalhaId) ?? null;
 
   return (
+    <div className="space-y-4">
+    <p className="rounded-lg border border-border/60 bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+      Camiseta ou medalha nova? Cadastre primeiro no Estoque do Dash. Ela aparece aqui e na Loja do checkout sozinha,
+      em até 10 minutos.
+    </p>
     <div className="grid gap-6 md:grid-cols-2">
       <div className="space-y-2">
         <label htmlFor="kit-camiseta" className="text-sm font-medium text-foreground">
@@ -106,6 +111,7 @@ export function KitCorridaCampos({
           do Dash; sem isso, a equipe lança a saída como hoje.
         </p>
       </div>
+    </div>
     </div>
   );
 }

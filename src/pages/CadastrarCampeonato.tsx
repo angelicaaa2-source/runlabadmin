@@ -24,6 +24,8 @@ import { PublicacaoAppCampos } from "@/components/PublicacaoAppCampos";
 import { MedalhaCorridaCampos } from "@/components/MedalhaCorridaCampos";
 import { KitCorridaCampos } from "@/components/KitCorridaCampos";
 import { KIT_CORRIDA_VAZIO, salvarKitCorrida, type EscolhaKitCorrida } from "@/lib/kitCorrida";
+import { PatrocinadoresCampos } from "@/components/PatrocinadoresCampos";
+import { erroDaLista, mensagemPatrocinio, salvarPatrocinadores, type ItemPatrocinador } from "@/lib/patrocinadores";
 import { erroDoArquivo, mensagemMedalha, salvarMedalha, type EscolhaMedalha } from "@/lib/medalha";
 import { erroDaEscolha, escolhaIso, formatPublishAt, type EscolhaPublicacao, type ModoPublicacao } from "@/lib/publicacao";
 
@@ -95,6 +97,7 @@ const CadastrarCampeonato = () => {
   const [publicacao, setPublicacao] = useState<EscolhaPublicacao>({ modo: "now", data: "", hora: "08:00" });
   const [medalha, setMedalha] = useState<EscolhaMedalha>({ arquivo: null, nome: "", descricao: "" });
   const [kitCorrida, setKitCorrida] = useState<EscolhaKitCorrida>(KIT_CORRIDA_VAZIO);
+  const [patrocinadores, setPatrocinadores] = useState<ItemPatrocinador[]>([]);
   const [documento1, setDocumento1] = useState<File | null>(null);
   const [documento2, setDocumento2] = useState<File | null>(null);
   const [documento3, setDocumento3] = useState<File | null>(null);
@@ -201,9 +204,14 @@ const CadastrarCampeonato = () => {
   const saveCompetition = async (modo: ModoPublicacao, publishAtIso: string | null = null) => {
     const status = modo === "now" ? "open" : "draft";
     const data = form.getValues();
+    const erroPatrocinio = erroDaLista(patrocinadores);
+    if (erroPatrocinio) {
+      toast.error(erroPatrocinio);
+      return;
+    }
     const erroMedalha = erroDoArquivo(medalha.arquivo);
     if (erroMedalha) {
-      toast.error(`Medalha da corrida: ${erroMedalha}`);
+      toast.error(`Badge da corrida: ${erroMedalha}`);
       return;
     }
     if (!data.nome?.trim()) {
@@ -389,12 +397,23 @@ const CadastrarCampeonato = () => {
         }
       }
 
+      // Patrocinadores (opcional): depois da corrida salva.
+      if (patrocinadores.length > 0) {
+        try {
+          await salvarPatrocinadores(competitionId, patrocinadores);
+        } catch (e) {
+          toast.error("Corrida salva, mas os patrocinadores não", {
+            description: `${mensagemPatrocinio(e)} Dá para cadastrar depois em Editar.`,
+          });
+        }
+      }
+
       // Medalha da corrida (opcional): depois da corrida salva, antes da data de publicação.
       if (medalha.arquivo) {
         try {
           await salvarMedalha(competitionId, medalha, data.nome);
         } catch (e) {
-          toast.error("Corrida salva, mas a medalha não foi cadastrada", {
+          toast.error("Corrida salva, mas o badge não foi cadastrado", {
             description: `${mensagemMedalha(e)} Dá para cadastrar depois em Editar.`,
           });
         }
@@ -1194,9 +1213,15 @@ const CadastrarCampeonato = () => {
             <KitCorridaCampos value={kitCorrida} onChange={setKitCorrida} disabled={isSubmitting} />
           </div>
 
-          {/* Medalha da corrida */}
+          {/* Patrocinadores */}
           <div className="space-y-6 bg-card border border-border/50 rounded-2xl p-8">
-            <h2 className="text-lg font-semibold text-foreground mb-6">Medalha da corrida (opcional)</h2>
+            <h2 className="text-lg font-semibold text-foreground mb-6">Patrocinadores (opcional)</h2>
+            <PatrocinadoresCampos itens={patrocinadores} onChange={setPatrocinadores} disabled={isSubmitting} />
+          </div>
+
+          {/* Badge da corrida (não é a medalha física) */}
+          <div className="space-y-6 bg-card border border-border/50 rounded-2xl p-8">
+            <h2 className="text-lg font-semibold text-foreground mb-6">Badge da corrida (opcional)</h2>
             <MedalhaCorridaCampos value={medalha} onChange={setMedalha} tituloCorrida={watch("nome") ?? ""} disabled={isSubmitting} />
           </div>
 

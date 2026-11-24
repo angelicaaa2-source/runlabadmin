@@ -29,7 +29,7 @@ interface MedalhaCorridaCamposProps {
 }
 
 /**
- * Seção "Medalha da corrida (opcional)" no cadastro e na edição: imagem, prévia como no app (recortada num
+ * Seção "Badge da corrida (opcional)" no cadastro e na edição: imagem, prévia como no app (recortada num
  * círculo), nome e descrição. Quem conclui uma tentativa na corrida ganha a medalha sozinho.
  */
 export const MedalhaCorridaCampos = ({
@@ -49,20 +49,20 @@ export const MedalhaCorridaCampos = ({
   }, [previewArquivo]);
   const preview = previewArquivo ?? atual?.image_url ?? null;
   const erro = erroDoArquivo(value.arquivo);
-  const nomeMostrado = value.nome.trim() || atual?.name || tituloCorrida || "Nome da medalha";
+  const nomeMostrado = value.nome.trim() || atual?.name || tituloCorrida || "Nome do badge";
 
   return (
     <div data-campos-medalha className="space-y-5">
       <p className="text-sm text-muted-foreground">
-        Quem concluir pelo menos uma tentativa nesta corrida ganha a medalha na hora, com a notificação "Nova Conquista!".
-        Ela aparece em Recompensas no app (só para quem ganhou) e pode ser compartilhada. Se a corrida já tiver
+        Quem concluir pelo menos uma tentativa nesta corrida ganha o badge na hora, com a notificação "Nova Conquista!".
+        Ele aparece em Recompensas no app (só para quem ganhou) e pode ser compartilhado. Não é a medalha física da corrida. Se a corrida já tiver
         tentativas concluídas, quem já concluiu ganha assim que você salvar.
       </p>
 
       {atual && (
         <div data-estado-medalha className="flex flex-wrap items-center gap-3 text-sm">
           <span className={atual.is_active ? "text-green-400" : "text-red-400"}>
-            {atual.is_active ? "Medalha ativa" : "Medalha removida (não aparece no app)"}
+            {atual.is_active ? "Badge ativo" : "Badge removido (não aparece no app)"}
           </span>
           <span className="text-muted-foreground">
             · {atual.total} atleta{atual.total === 1 ? "" : "s"} {atual.total === 1 ? "recebeu" : "receberam"}
@@ -76,12 +76,12 @@ export const MedalhaCorridaCampos = ({
               onClick={() => setConfirmaRemover(true)}
               className="text-red-400 hover:text-red-300 hover:bg-red-500/10"
             >
-              Remover medalha
+              Remover badge
             </Button>
           )}
           {!atual.is_active && onReativar && (
             <Button type="button" variant="ghost" size="sm" disabled={disabled || ocupado} onClick={onReativar} className="text-primary">
-              Reativar medalha
+              Reativar badge
             </Button>
           )}
         </div>
@@ -95,7 +95,7 @@ export const MedalhaCorridaCampos = ({
             style={{ border: "2px solid #CCF725", boxShadow: "0 0 12px rgba(204,247,37,0.15)", backgroundColor: "#1A2600" }}
           >
             {preview ? (
-              <img src={preview} alt="Prévia da medalha" className="w-full h-full object-cover" />
+              <img src={preview} alt="Prévia do badge" className="w-full h-full object-cover" />
             ) : (
               <Award className="w-10 h-10 text-[#CCF725]" />
             )}
@@ -106,7 +106,7 @@ export const MedalhaCorridaCampos = ({
 
         <div className="flex-1 space-y-4">
           <div className="space-y-2">
-            <Label>Imagem da medalha</Label>
+            <Label>Imagem do badge</Label>
             <div className="flex items-center gap-3">
               <input
                 id="medalha-arquivo"
@@ -127,14 +127,14 @@ export const MedalhaCorridaCampos = ({
               {value.arquivo && <span className="text-xs text-muted-foreground truncate max-w-[220px]">{value.arquivo.name}</span>}
             </div>
             <p className="text-xs text-muted-foreground">
-              PNG com fundo transparente, quadrada (512 x 512 ou maior), até 2 MB. O app mostra a medalha recortada num
+              PNG com fundo transparente, quadrada (512 x 512 ou maior), até 2 MB. O app mostra o badge recortado num
               círculo: deixe o desenho importante no centro.
             </p>
             {erro && <p className="text-sm text-destructive">{erro}</p>}
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="medalha-nome">Nome da medalha</Label>
+              <Label htmlFor="medalha-nome">Nome do badge</Label>
               <Input
                 id="medalha-nome"
                 maxLength={60}
@@ -162,9 +162,9 @@ export const MedalhaCorridaCampos = ({
       <AlertDialog open={confirmaRemover} onOpenChange={setConfirmaRemover}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Remover a medalha da corrida?</AlertDialogTitle>
+            <AlertDialogTitle>Remover o badge da corrida?</AlertDialogTitle>
             <AlertDialogDescription>
-              Ela some de Recompensas no app, inclusive para quem já ganhou, e ninguém mais ganha. Dá para reativar depois:
+              Ele some de Recompensas no app, inclusive para quem já ganhou, e ninguém mais ganha. Dá para reativar depois:
               quem tinha volta a ver.
             </AlertDialogDescription>
           </AlertDialogHeader>
@@ -177,7 +177,7 @@ export const MedalhaCorridaCampos = ({
               }}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              Remover medalha
+              Remover badge
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

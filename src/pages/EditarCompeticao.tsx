@@ -24,6 +24,15 @@ import { supabase } from "@/lib/supabase";
 import { calendarFromLocalDate, localDateFromCalendar } from "@/lib/localDate";
 import { PublicacaoAppCampos } from "@/components/PublicacaoAppCampos";
 import { MedalhaCorridaCampos } from "@/components/MedalhaCorridaCampos";
+import { PatrocinadoresCampos } from "@/components/PatrocinadoresCampos";
+import {
+  assinatura,
+  carregarPatrocinadores,
+  erroDaLista,
+  mensagemPatrocinio,
+  salvarPatrocinadores,
+  type ItemPatrocinador,
+} from "@/lib/patrocinadores";
 import {
   carregarMedalha,
   erroDoArquivo,
@@ -184,10 +193,9 @@ const EditarCompeticao = () => {
   }, [id]);
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string>("");
-  /** IDs dos patrocinadores da tabela competition_sponsors selecionados para esta competição */
-  const [selectedSponsorIds, setSelectedSponsorIds] = useState<string[]>([]);
-  /** Lista de todos os patrocinadores disponíveis (tabela competition_sponsors) */
-  const [availableSponsors, setAvailableSponsors] = useState<{ id: string; name: string; logo_url: string | null; sort_order: number }[]>([]);
+  /** Patrocinadores desta corrida (logo, nome e link), na ordem do app. */
+  const [patrocinadores, setPatrocinadores] = useState<ItemPatrocinador[]>([]);
+  const [assinaturaPatrocinadores, setAssinaturaPatrocinadores] = useState("[]");
   const [documento1, setDocumento1] = useState<File | null>(null);
   const [documento2, setDocumento2] = useState<File | null>(null);
   const [documento3, setDocumento3] = useState<File | null>(null);
@@ -227,10 +235,10 @@ const EditarCompeticao = () => {
     setMedalhaOcupada(true);
     try {
       await removerMedalha(id);
-      toast.success("Medalha removida do app");
+      toast.success("Badge removido do app");
       await recarregarMedalha();
     } catch (e) {
-      toast.error("Não foi possível remover a medalha", { description: mensagemMedalha(e) });
+      toast.error("Não foi possível remover o badge", { description: mensagemMedalha(e) });
     } finally {
       setMedalhaOcupada(false);
     }
@@ -241,12 +249,12 @@ const EditarCompeticao = () => {
     setMedalhaOcupada(true);
     try {
       const r = await salvarMedalha(id, { arquivo: null, nome: medalhaAtual.name, descricao: medalhaAtual.description ?? "" }, medalhaAtual.name);
-      toast.success("Medalha reativada", {
+      toast.success("Badge reativado", {
         description: r.awarded_now > 0 ? `${r.awarded_now} atleta(s) ganharam agora.` : undefined,
       });
       await recarregarMedalha();
     } catch (e) {
-      toast.error("Não foi possível reativar a medalha", { description: mensagemMedalha(e) });
+      toast.error("Não foi possível reativar o badge", { description: mensagemMedalha(e) });
     } finally {
       setMedalhaOcupada(false);
     }
@@ -309,7 +317,6 @@ const EditarCompeticao = () => {
       lote2PossuiKit: lot1?.hasKit ?? false
     });
     if (competition.coverImageUrl) setPreviewUrl(competition.coverImageUrl);
-    setSelectedSponsorIds(competition.sponsors?.map((s) => s.id) ?? []);
     setExistingDocs(
       (competition.documents ?? []).map((d) => ({
         id: d.id,
@@ -321,17 +328,19 @@ const EditarCompeticao = () => {
     setPublicacao(escolhaInicial(competition.status === "draft", competition.publishAt));
   }, [competition, form]);
 
-  // Carregar lista de patrocinadores da tabela competition_sponsors
+  // Patrocinadores desta corrida
   useEffect(() => {
+    if (!id) return;
     (async () => {
-      const { data, error } = await supabase
-        .from("competition_sponsors")
-        .select("id, name, logo_url, sort_order")
-        .order("sort_order")
-        .order("name");
-      if (!error && data) setAvailableSponsors(data);
+      try {
+        const itens = await carregarPatrocinadores(id);
+        setPatrocinadores(itens);
+        setAssinaturaPatrocinadores(assinatura(itens));
+      } catch (e) {
+        console.error("Erro ao carregar os patrocinadores:", e);
+      }
     })();
-  }, []);
+  }, [id]);
 
   // Carregar lista de campeonatos
   useEffect(() => {
@@ -343,12 +352,6 @@ const EditarCompeticao = () => {
       if (!error && data) setAvailableChampionships(data);
     })();
   }, []);
-
-  const toggleSponsor = (sponsorId: string) => {
-    setSelectedSponsorIds((prev) =>
-      prev.includes(sponsorId) ? prev.filter((id) => id !== sponsorId) : [...prev, sponsorId]
-    );
-  };
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -405,13 +408,18 @@ const EditarCompeticao = () => {
       toast.error(erroPublicacao);
       return;
     }
+    const erroPatrocinio = erroDaLista(patrocinadores);
+    if (erroPatrocinio) {
+      toast.error(erroPatrocinio);
+      return;
+    }
     const erroMedalha = erroDoArquivo(medalha.arquivo);
     if (erroMedalha) {
-      toast.error(`Medalha da corrida: ${erroMedalha}`);
+      toast.error(`Badge da corrida: ${erroMedalha}`);
       return;
     }
     if (!medalhaAtual && !medalha.arquivo && (medalha.nome.trim() || medalha.descricao.trim())) {
-      toast.error("Medalha da corrida: escolha a imagem da medalha (ou apague o nome e a descrição).");
+      toast.error("Badge da corrida: escolha a imagem do badge (ou apague o nome e a descrição).");
       return;
     }
     setIsSaving(true);
@@ -477,11 +485,14 @@ const EditarCompeticao = () => {
         if (urlUpdateError) throw urlUpdateError;
       }
 
-      const { error: sponsorsUpdateError } = await supabase
-        .from("competitions")
-        .update({ competition_sponsors: selectedSponsorIds.length > 0 ? selectedSponsorIds : null })
-        .eq("id", id);
-      if (sponsorsUpdateError) throw sponsorsUpdateError;
+      // Patrocinadores: grava a lista inteira (logos novos, nomes, links e ordem) só se mudou.
+      if (assinatura(patrocinadores) !== assinaturaPatrocinadores) {
+        try {
+          await salvarPatrocinadores(id, patrocinadores);
+        } catch (e) {
+          toast.error("Os patrocinadores não foram salvos", { description: mensagemPatrocinio(e) });
+        }
+      }
 
       // Kit da corrida (peças físicas).
       await salvarKitCorrida(id, kitCorrida);
@@ -742,10 +753,10 @@ const EditarCompeticao = () => {
         try {
           const r = await salvarMedalha(id, medalha, data.nome);
           if (r.awarded_now > 0) {
-            toast.success(`Medalha da corrida: ${r.awarded_now} atleta(s) que já concluíram ganharam agora.`);
+            toast.success(`Badge da corrida: ${r.awarded_now} atleta(s) que já concluíram ganharam agora.`);
           }
         } catch (e) {
-          toast.error("Dados salvos, mas a medalha da corrida não", { description: mensagemMedalha(e) });
+          toast.error("Dados salvos, mas o badge da corrida não", { description: mensagemMedalha(e) });
         }
       }
 
@@ -1457,44 +1468,11 @@ const EditarCompeticao = () => {
             </div>
           </div>
 
-          {/* Patrocinadores Section - seleção da tabela competition_sponsors */}
+          {/* Patrocinadores da corrida (logo, nome e link) */}
           <div className="mt-6">
             <div className="rounded-[20px] border border-border/50 bg-[#2A2A2A] p-8">
-              <h2 className="text-lg font-semibold mb-2">Patrocinadores</h2>
-              <p className="text-sm text-muted-foreground mb-6">Selecione os patrocinadores que aparecerão nesta competição.</p>
-              <div className="flex flex-wrap gap-4">
-                {availableSponsors.map((sponsor) => {
-                  const isSelected = selectedSponsorIds.includes(sponsor.id);
-                  return (
-                    <button
-                      key={sponsor.id}
-                      type="button"
-                      onClick={() => toggleSponsor(sponsor.id)}
-                      className={cn(
-                        "flex flex-col items-center gap-2 rounded-xl border-2 p-4 min-w-[120px] transition-all",
-                        isSelected
-                          ? "border-[#CCF725] bg-[#CCF725]/10"
-                          : "border-border/50 bg-[#1A1A1A] hover:border-muted-foreground/50"
-                      )}
-                    >
-                      <div className="w-16 h-16 rounded-lg bg-[#2A2A2A] flex items-center justify-center overflow-hidden">
-                        {sponsor.logo_url ? (
-                          <img src={sponsor.logo_url} alt={sponsor.name} className="max-w-full max-h-full object-contain" />
-                        ) : (
-                          <span className="text-xs text-muted-foreground truncate px-1 text-center">{sponsor.name.slice(0, 8)}</span>
-                        )}
-                      </div>
-                      <span className="text-sm text-foreground font-medium text-center line-clamp-2">{sponsor.name}</span>
-                      <div className="w-5 h-5 rounded-full border-2 flex items-center justify-center" style={{ borderColor: isSelected ? '#CCF725' : undefined, backgroundColor: isSelected ? '#CCF725' : undefined }}>
-                        {isSelected && <Check className="w-3 h-3" style={{ color: '#1A1A1A' }} />}
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-              {availableSponsors.length === 0 && (
-                <p className="text-sm text-muted-foreground">Nenhum patrocinador cadastrado na base. Cadastre em competition_sponsors para exibir aqui.</p>
-              )}
+              <h2 className="text-lg font-semibold mb-6">Patrocinadores</h2>
+              <PatrocinadoresCampos itens={patrocinadores} onChange={setPatrocinadores} disabled={isSaving} />
             </div>
           </div>
 
@@ -1709,10 +1687,10 @@ const EditarCompeticao = () => {
             </div>
           </div>
 
-          {/* Medalha da corrida */}
+          {/* Badge da corrida (não é a medalha física) */}
           <div className="mt-6">
             <div className="rounded-[20px] border border-border/50 bg-[#2A2A2A] p-8">
-              <h2 className="text-lg font-semibold mb-6">Medalha da corrida (opcional)</h2>
+              <h2 className="text-lg font-semibold mb-6">Badge da corrida (opcional)</h2>
               <MedalhaCorridaCampos
                 value={medalha}
                 onChange={setMedalha}
