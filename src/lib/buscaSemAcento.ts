@@ -26,3 +26,8 @@ export function padraoSemAcento(termo: string): string | null {
   if (!limpo) return null;
   return [...limpo].map((ch) => (VARIACOES[ch] ? `[${VARIACOES[ch]}]` : ch)).join("");
 }
+
+/** Texto sem acento e em minúsculas, para comparar nomes na tela ("Júnior" -> "junior"). */
+export function semAcento(texto: string): string {
+  return texto.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/\s+/g, " ").trim();
+}

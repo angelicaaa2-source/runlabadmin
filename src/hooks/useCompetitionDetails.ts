@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
+import { semAcento } from "@/lib/buscaSemAcento";
 import { useRealtimeRefetch } from "./useSupabaseRealtime";
 import { formatLocalDate, formatLocalDateRange, resolveLocalDate } from "@/lib/localDate";
 import { fetchGenders, rankByGender, type Genero } from "@/lib/genero";
@@ -74,6 +75,7 @@ export type CompetitionDetail = {
 
 export type RegistrationRow = {
   id: string;
+  userId: string;
   userName: string;
   userAvatar: string | null;
   distanceLabel: string | null;
@@ -85,6 +87,8 @@ export type RegistrationRow = {
   shirtSize: string | null;
   status: string;
   createdAt: string;
+  /** Só em inscrição cancelada pelo admin (admin_registration_cancellations). */
+  cancelamento: { reason: string; createdAt: string; byName: string | null; creditReturned: boolean } | null;
 };
 
 export type RankingRow = {
@@ -420,10 +424,12 @@ export function useCompetitionRegistrations(
   competitionId: string | undefined,
   page: number = 1,
   pageSize: number = 10,
-  filters: InscricoesFilters = {}
+  filters: InscricoesFilters = {},
+  search: string = ""
 ) {
   const [data, setData] = useState<RegistrationRow[]>([]);
   const [total, setTotal] = useState(0);
+  const [cancelledTotal, setCancelledTotal] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
 
@@ -516,6 +522,58 @@ export function useCompetitionRegistrations(
         }
       }
 
+      // Canceladas ficam na lista, com o status "Cancelado" (pedido dela em 24/11/2026). A contagem do topo
+      // separa as canceladas. A exportação continua só com as ativas (alimenta o fechamento no Dash).
+      const { count: canceladas } = await supabase
+        .from("competition_registrations")
+        .select("id", { count: "exact", head: true })
+        .eq("competition_id", competitionId)
+        .eq("status", "cancelled");
+      setCancelledTotal(canceladas ?? 0);
+
+      // Busca por nome ou e-mail (sem acento): a lista de uma competição é pequena, então junta os ids
+      // de todas as inscrições com os filtros, compara os nomes aqui e pagina o resultado.
+      const termo = semAcento(search);
+      let pageIds: string[] | null = null;
+      if (termo) {
+        const todas: { id: string; user_id: string }[] = [];
+        for (let start = 0; ; start += 1000) {
+          let q = supabase
+            .from("competition_registrations")
+            .select("id, user_id")
+            .eq("competition_id", competitionId)
+            .order("created_at", { ascending: false });
+          if (filters.status && filters.status !== "all") q = q.eq("status", filters.status);
+          if (filterUserIds && filterUserIds.length > 0) q = q.in("user_id", filterUserIds);
+          if (distanceIds && distanceIds.length > 0) q = q.in("distance_id", distanceIds);
+          const { data: chunk, error: chunkError } = await q.range(start, start + 999);
+          if (chunkError) throw chunkError;
+          todas.push(...((chunk ?? []) as { id: string; user_id: string }[]));
+          if (!chunk || chunk.length < 1000) break;
+        }
+        const uids = [...new Set(todas.map((r) => r.user_id))];
+        const achados = new Set<string>();
+        for (let i = 0; i < uids.length; i += 100) {
+          const { data: ps, error: psError } = await supabase
+            .from("v_corredores_admin")
+            .select("id, full_name, email")
+            .in("id", uids.slice(i, i + 100));
+          if (psError) throw psError;
+          ((ps ?? []) as { id: string; full_name: string | null; email: string | null }[]).forEach((pr) => {
+            if (semAcento(pr.full_name ?? "").includes(termo) || (pr.email ?? "").toLowerCase().includes(termo)) {
+              achados.add(pr.id);
+            }
+          });
+        }
+        const ids = todas.filter((r) => achados.has(r.user_id)).map((r) => r.id);
+        setTotal(ids.length);
+        pageIds = ids.slice(from, to + 1);
+        if (pageIds.length === 0) {
+          setData([]);
+          return;
+        }
+      }
+
       let query = supabase
         .from("competition_registrations")
         .select("id, user_id, distance_id, lot_id, status, created_at, shirt_size", {
@@ -524,26 +582,28 @@ export function useCompetitionRegistrations(
         .eq("competition_id", competitionId)
         .order("created_at", { ascending: false });
 
-      if (filters.status && filters.status !== "all") {
-        query = query.eq("status", filters.status);
+      if (pageIds) {
+        query = query.in("id", pageIds);
       } else {
-        query = query.neq("status", "cancelled");
-      }
-      if (filterUserIds && filterUserIds.length > 0) {
-        query = query.in("user_id", filterUserIds);
-      }
-      if (distanceIds && distanceIds.length > 0) {
-        query = query.in("distance_id", distanceIds);
+        if (filters.status && filters.status !== "all") {
+          query = query.eq("status", filters.status);
+        }
+        if (filterUserIds && filterUserIds.length > 0) {
+          query = query.in("user_id", filterUserIds);
+        }
+        if (distanceIds && distanceIds.length > 0) {
+          query = query.in("distance_id", distanceIds);
+        }
       }
 
       const {
         data: regs,
         error: regsError,
         count,
-      } = await query.range(from, to);
+      } = pageIds ? await query : await query.range(from, to);
 
       if (regsError) throw regsError;
-      setTotal(count || 0);
+      if (!pageIds) setTotal(count || 0);
 
       if (!regs || regs.length === 0) {
         setData([]);
@@ -607,12 +667,40 @@ export function useCompetitionRegistrations(
         });
       }
 
+      // Quem cancelou, quando e a justificativa (inscrições canceladas pelo admin).
+      const cancMap: Record<string, RegistrationRow["cancelamento"]> = {};
+      const cancIds = regs.filter((r) => r.status === "cancelled").map((r) => r.id);
+      if (cancIds.length > 0) {
+        const { data: cs } = await supabase
+          .from("admin_registration_cancellations")
+          .select("registration_id, reason, created_at, cancelled_by, credit_returned")
+          .in("registration_id", cancIds);
+        const lista = (cs ?? []) as { registration_id: string; reason: string; created_at: string; cancelled_by: string; credit_returned: boolean }[];
+        const quem = [...new Set(lista.map((c) => c.cancelled_by))];
+        const nomes: Record<string, string> = {};
+        if (quem.length > 0) {
+          const { data: ps } = await supabase.from("profiles").select("id, full_name").in("id", quem);
+          ((ps ?? []) as { id: string; full_name: string | null }[]).forEach((pr) => {
+            nomes[pr.id] = pr.full_name ?? "";
+          });
+        }
+        lista.forEach((c) => {
+          cancMap[c.registration_id] = {
+            reason: c.reason,
+            createdAt: c.created_at,
+            byName: nomes[c.cancelled_by] || null,
+            creditReturned: c.credit_returned,
+          };
+        });
+      }
+
       const rows: RegistrationRow[] = regs.map((r) => {
         const profile = profileMap[r.user_id];
         const distance = r.distance_id ? distanceMap[r.distance_id] : null;
         const lot = r.lot_id ? lotMap[r.lot_id] : null;
         return {
           id: r.id,
+          userId: r.user_id,
           userName: profile?.full_name || "Usuário desconhecido",
           userAvatar: profile?.avatar_url || null,
           distanceLabel: distance?.label || null,
@@ -624,6 +712,7 @@ export function useCompetitionRegistrations(
           shirtSize: r.shirt_size ?? null,
           status: r.status,
           createdAt: r.created_at,
+          cancelamento: cancMap[r.id] ?? null,
         };
       });
 
@@ -636,7 +725,7 @@ export function useCompetitionRegistrations(
     } finally {
       setLoading(false);
     }
-  }, [competitionId, page, pageSize, filters]);
+  }, [competitionId, page, pageSize, filters, search]);
 
   useEffect(() => {
     fetchRegistrations();
@@ -644,7 +733,7 @@ export function useCompetitionRegistrations(
 
   useRealtimeRefetch(["competition_registrations"], fetchRegistrations);
 
-  return { data, total, loading, error, refetch: fetchRegistrations };
+  return { data, total, cancelledTotal, loading, error, refetch: fetchRegistrations };
 }
 
 // ─── Hook: Competition Ranking (paginated) ───────────────

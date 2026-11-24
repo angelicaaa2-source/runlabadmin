@@ -3,6 +3,7 @@ import { Header } from "@/components/Header";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { usePermissions } from "@/hooks/usePermissions";
 import { CancelarInscricaoDialog } from "@/components/CancelarInscricaoDialog";
+import { CorredorPerfilSheet } from "@/components/CorredorPerfilSheet";
 import { ChevronLeft, ChevronRight, Pencil, Download, Filter, Loader2, Search, CalendarClock } from "lucide-react";
 import { PublicacaoAppDialog } from "@/components/PublicacaoAppDialog";
 import { formatPublishAt } from "@/lib/publicacao";
@@ -343,123 +344,176 @@ const InscricoesTab = ({
   const { hasPermission } = usePermissions();
   const canEdit = hasPermission("competicoes.edit");
   const [cancelar, setCancelar] = useState<{ id: string; nome: string } | null>(null);
-  const { data, total, loading, error, refetch } = useCompetitionRegistrations(
+  const [perfil, setPerfil] = useState<{ id: string; nome: string } | null>(null);
+  const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(search), 300);
+    return () => clearTimeout(t);
+  }, [search]);
+
+  useEffect(() => {
+    onPageChange(1);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [debouncedSearch]);
+
+  const { data, total, cancelledTotal, loading, error, refetch } = useCompetitionRegistrations(
     competitionId,
     page,
     pageSize,
-    filters
+    filters,
+    debouncedSearch
   );
 
   const hasActiveFilters = Object.keys(filters).length > 0;
+  const buscando = debouncedSearch.trim().length > 0;
 
-  if (loading && data.length === 0) return <LoadingState />;
+  if (loading && data.length === 0 && !buscando && !search) return <LoadingState />;
   if (error) return <ErrorState message={error.message} onRetry={refetch} />;
-  if (data.length === 0) {
-    return (
-      <EmptyState
-        message={
-          hasActiveFilters
-            ? "Nenhuma inscrição encontrada com os filtros aplicados."
-            : "Nenhuma inscrição encontrada."
-        }
-      />
-    );
-  }
+
+  const contagem = hasActiveFilters || buscando
+    ? `${total} resultado${total !== 1 ? "s" : ""}${hasActiveFilters ? " (filtrado)" : ""}`
+    : `${total - cancelledTotal} inscrito${total - cancelledTotal !== 1 ? "s" : ""}` +
+      (cancelledTotal > 0 ? ` · ${cancelledTotal} cancelada${cancelledTotal !== 1 ? "s" : ""}` : "");
 
   return (
     <>
       <div className="rounded-lg overflow-hidden border border-border mb-6">
-        <div className="px-6 py-4 bg-[#262626] flex items-center justify-between">
+        <div className="px-6 py-4 bg-[#262626] flex items-center justify-between gap-4">
           <h2 className="text-xl font-semibold text-foreground">Inscritos</h2>
-          <p className="text-sm text-muted-foreground">
-            {total} inscrito{total !== 1 ? "s" : ""}
-            {hasActiveFilters && " (filtrado)"}
-          </p>
+          <div className="flex items-center gap-4">
+            <p data-contagem-inscritos className="text-sm text-muted-foreground flex items-center gap-2 whitespace-nowrap">
+              {loading && <Loader2 className="h-3 w-3 animate-spin" />}
+              {contagem}
+            </p>
+            <div className="relative w-72">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                data-busca-inscritos
+                placeholder="Buscar por nome ou e-mail"
+                className="pl-10 bg-input border-border text-foreground"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+            </div>
+          </div>
         </div>
-        <Table>
-          <TableHeader>
-            <TableRow className="bg-table-header hover:bg-table-header">
-              <TableHead className="font-medium" style={{ color: "#E0E0E0" }}>
-                Nome
-              </TableHead>
-              <TableHead className="font-medium" style={{ color: "#E0E0E0" }}>
-                Distância
-              </TableHead>
-              <TableHead className="font-medium" style={{ color: "#E0E0E0" }}>
-                Tentativas
-              </TableHead>
-              <TableHead className="font-medium" style={{ color: "#E0E0E0" }}>
-                Lote
-              </TableHead>
-              <TableHead className="font-medium" style={{ color: "#E0E0E0" }}>
-                Valor
-              </TableHead>
-              <TableHead className="font-medium" style={{ color: "#E0E0E0" }}>
-                Tamanho
-              </TableHead>
-              <TableHead className="font-medium" style={{ color: "#E0E0E0" }}>
-                Status
-              </TableHead>
-              {canEdit && <TableHead className="w-[110px]" />}
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {data.map((reg) => (
-              <TableRow
-                key={reg.id}
-                className="border-border hover:bg-muted/50 bg-[#262626]"
-              >
-                <TableCell className="font-medium text-foreground">
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-full bg-muted overflow-hidden flex-shrink-0">
-                      {reg.userAvatar ? (
-                        <img
-                          src={reg.userAvatar}
-                          alt={reg.userName}
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center text-xs text-muted-foreground">
-                          {reg.userName.charAt(0).toUpperCase()}
+        {data.length === 0 ? (
+          <div className="bg-[#262626] px-6 py-10 text-center text-sm text-muted-foreground">
+            {loading
+              ? "Carregando..."
+              : buscando
+                ? `Nenhum inscrito encontrado para "${debouncedSearch.trim()}".`
+                : hasActiveFilters
+                  ? "Nenhuma inscrição encontrada com os filtros aplicados."
+                  : "Nenhuma inscrição encontrada."}
+          </div>
+        ) : (
+          <Table>
+            <TableHeader>
+              <TableRow className="bg-table-header hover:bg-table-header">
+                <TableHead className="font-medium" style={{ color: "#E0E0E0" }}>
+                  Nome
+                </TableHead>
+                <TableHead className="font-medium" style={{ color: "#E0E0E0" }}>
+                  Distância
+                </TableHead>
+                <TableHead className="font-medium" style={{ color: "#E0E0E0" }}>
+                  Tentativas
+                </TableHead>
+                <TableHead className="font-medium" style={{ color: "#E0E0E0" }}>
+                  Lote
+                </TableHead>
+                <TableHead className="font-medium" style={{ color: "#E0E0E0" }}>
+                  Valor
+                </TableHead>
+                <TableHead className="font-medium" style={{ color: "#E0E0E0" }}>
+                  Tamanho
+                </TableHead>
+                <TableHead className="font-medium" style={{ color: "#E0E0E0" }}>
+                  Status
+                </TableHead>
+                {canEdit && <TableHead className="w-[110px]" />}
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {data.map((reg) => (
+                <TableRow
+                  key={reg.id}
+                  data-inscrito-row
+                  className={`border-border hover:bg-muted/50 bg-[#262626] ${reg.status === "cancelled" ? "opacity-70" : ""}`}
+                >
+                  <TableCell className="font-medium text-foreground">
+                    <button
+                      type="button"
+                      data-abrir-corredor
+                      onClick={() => setPerfil({ id: reg.userId, nome: reg.userName })}
+                      className="flex items-center gap-3 text-left hover:text-primary transition-colors"
+                      title="Ver perfil, contato e histórico"
+                    >
+                      <div className="w-8 h-8 rounded-full bg-muted overflow-hidden flex-shrink-0">
+                        {reg.userAvatar ? (
+                          <img
+                            src={reg.userAvatar}
+                            alt={reg.userName}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-xs text-muted-foreground">
+                            {reg.userName.charAt(0).toUpperCase()}
+                          </div>
+                        )}
+                      </div>
+                      <span className="underline-offset-4 hover:underline">{reg.userName}</span>
+                    </button>
+                  </TableCell>
+                  <TableCell className="text-foreground">
+                    {reg.distanceLabel || "-"}
+                  </TableCell>
+                  <TableCell className="text-foreground text-center">
+                    {reg.attempts}
+                  </TableCell>
+                  <TableCell className="text-foreground">{reg.lotName || "-"}</TableCell>
+                  <TableCell className="text-foreground">
+                    {formatPrice(reg.priceCents)}
+                  </TableCell>
+                  <TableCell className="text-foreground">
+                    {reg.shirtSize ?? "-"}
+                  </TableCell>
+                  <TableCell>
+                    {getRegistrationStatusBadge(reg.status)}
+                    {reg.cancelamento && (
+                      <div data-info-cancelamento className="mt-1 max-w-[240px] space-y-0.5 text-xs text-muted-foreground">
+                        <div>
+                          Em {new Date(reg.cancelamento.createdAt).toLocaleDateString("pt-BR")}
+                          {reg.cancelamento.byName ? ` por ${reg.cancelamento.byName}` : ""}
                         </div>
-                      )}
-                    </div>
-                    {reg.userName}
-                  </div>
-                </TableCell>
-                <TableCell className="text-foreground">
-                  {reg.distanceLabel || "-"}
-                </TableCell>
-                <TableCell className="text-foreground text-center">
-                  {reg.attempts}
-                </TableCell>
-                <TableCell className="text-foreground">{reg.lotName || "-"}</TableCell>
-                <TableCell className="text-foreground">
-                  {formatPrice(reg.priceCents)}
-                </TableCell>
-                <TableCell className="text-foreground">
-                  {reg.shirtSize ?? "-"}
-                </TableCell>
-                <TableCell>{getRegistrationStatusBadge(reg.status)}</TableCell>
-                {canEdit && (
-                  <TableCell className="text-right">
-                    {reg.status !== "cancelled" && (
-                      <Button
-                        data-cancelar-inscricao-btn
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setCancelar({ id: reg.id, nome: reg.userName })}
-                        className="text-red-400 hover:text-red-300 hover:bg-red-500/10"
-                      >
-                        Cancelar
-                      </Button>
+                        <div>"{reg.cancelamento.reason}"</div>
+                        {reg.cancelamento.creditReturned && <div>Crédito devolvido</div>}
+                      </div>
                     )}
                   </TableCell>
-                )}
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+                  {canEdit && (
+                    <TableCell className="text-right">
+                      {reg.status !== "cancelled" && (
+                        <Button
+                          data-cancelar-inscricao-btn
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setCancelar({ id: reg.id, nome: reg.userName })}
+                          className="text-red-400 hover:text-red-300 hover:bg-red-500/10"
+                        >
+                          Cancelar
+                        </Button>
+                      )}
+                    </TableCell>
+                  )}
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )}
       </div>
 
       <Pagination
@@ -476,6 +530,15 @@ const InscricoesTab = ({
         onClose={() => setCancelar(null)}
         onDone={() => {
           setCancelar(null);
+          refetch();
+        }}
+      />
+
+      <CorredorPerfilSheet
+        userId={perfil?.id ?? null}
+        userName={perfil?.nome}
+        onClose={() => {
+          setPerfil(null);
           refetch();
         }}
       />
@@ -509,6 +572,7 @@ const RankingTab = ({
   }, [activeGender, onGenderChange]);
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [perfil, setPerfil] = useState<{ id: string; nome: string } | null>(null);
   const pageSize = 10;
   const { data, total, loading, error, refetch } = useCompetitionRanking(
     competitionId,
@@ -642,7 +706,13 @@ const RankingTab = ({
                 >
                   <TableCell className="text-foreground font-medium">{item.position}º</TableCell>
                   <TableCell className="font-medium text-foreground">
-                    <div className="flex items-center gap-3">
+                    <button
+                      type="button"
+                      data-abrir-corredor
+                      onClick={() => setPerfil({ id: item.userId, nome: item.userName })}
+                      className="flex items-center gap-3 text-left hover:text-primary transition-colors"
+                      title="Ver perfil, contato e histórico"
+                    >
                       <div className="w-10 h-10 rounded-full bg-muted overflow-hidden flex-shrink-0">
                         {item.userAvatar ? (
                           <img src={item.userAvatar} alt={item.userName} className="w-full h-full object-cover" />
@@ -652,8 +722,8 @@ const RankingTab = ({
                           </div>
                         )}
                       </div>
-                      {item.userName}
-                    </div>
+                      <span className="underline-offset-4 hover:underline">{item.userName}</span>
+                    </button>
                   </TableCell>
                   <TableCell className="text-foreground">{formatPace(item.paceSecondsPerKm)}</TableCell>
                   <TableCell className="text-foreground">{formatTime(item.totalTimeSeconds)}</TableCell>
@@ -691,6 +761,7 @@ const RankingTab = ({
         pageSize={pageSize}
         onPageChange={setPage}
       />
+      <CorredorPerfilSheet userId={perfil?.id ?? null} userName={perfil?.nome} onClose={() => setPerfil(null)} />
     </>
   );
 };
