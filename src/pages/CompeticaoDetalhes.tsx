@@ -2,7 +2,10 @@ import { useEffect, useState } from "react";
 import { Header } from "@/components/Header";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { usePermissions } from "@/hooks/usePermissions";
-import { ChevronLeft, ChevronRight, Pencil, Download, Filter, Loader2, Search } from "lucide-react";
+import { ChevronLeft, ChevronRight, Pencil, Download, Filter, Loader2, Search, CalendarClock } from "lucide-react";
+import { PublicacaoAppDialog } from "@/components/PublicacaoAppDialog";
+import { formatPublishAt } from "@/lib/publicacao";
+import { GENEROS, type Genero } from "@/lib/genero";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
@@ -454,17 +457,25 @@ const InscricoesTab = ({
 const RankingTab = ({
   competitionId,
   onSourceChange,
+  onGenderChange,
 }: {
   competitionId: string;
   onSourceChange?: (source: "public" | "audit") => void;
+  onGenderChange?: (gender: Genero) => void;
 }) => {
   const [page, setPage] = useState(1);
   const [source, setSource] = useState<"public" | "audit">("public");
+  const [gender, setGender] = useState<Genero>("");
 
   // Avisa a página qual aba está aberta, para o botão Exportar baixar a certa.
   useEffect(() => {
     onSourceChange?.(source);
   }, [source, onSourceChange]);
+  // O gênero só vale no ranking público.
+  const activeGender: Genero = source === "public" ? gender : "";
+  useEffect(() => {
+    onGenderChange?.(activeGender);
+  }, [activeGender, onGenderChange]);
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const pageSize = 10;
@@ -473,7 +484,8 @@ const RankingTab = ({
     page,
     pageSize,
     source,
-    debouncedSearch
+    debouncedSearch,
+    activeGender
   );
 
   useEffect(() => {
@@ -511,6 +523,25 @@ const RankingTab = ({
         >
           Auditoria de tentativas
         </Button>
+        {source === "public" && (
+          <div className="flex items-center gap-2 ml-auto" data-filtro-genero>
+            <span className="text-sm text-muted-foreground">Gênero:</span>
+            {GENEROS.map((g) => (
+              <Button
+                key={g.label}
+                type="button"
+                size="sm"
+                variant={gender === g.value ? "default" : "secondary"}
+                onClick={() => {
+                  setGender(g.value);
+                  setPage(1);
+                }}
+              >
+                {g.label}
+              </Button>
+            ))}
+          </div>
+        )}
       </div>
 
       <div className="rounded-lg overflow-hidden border border-border mb-6">
@@ -518,10 +549,13 @@ const RankingTab = ({
           <div>
             <h2 className="text-xl font-semibold text-foreground">
               {source === "public" ? "Ranking público (app)" : "Auditoria de tentativas"}
+              {activeGender ? ` · ${activeGender}` : ""}
             </h2>
             <p className="text-sm text-muted-foreground mt-1">
               {source === "public"
-                ? "Mesma fonte exibida no app, com paces abaixo de 3:00/km ocultos."
+                ? activeGender
+                  ? `Só ${activeGender === "Feminino" ? "mulheres" : "homens"}, com a posição refeita dentro do gênero (pelo gênero do cadastro).`
+                  : "Mesma fonte exibida no app, com paces abaixo de 3:00/km ocultos."
                 : "Inclui todos que tentaram correr e mostra por que podem não aparecer no app."}
             </p>
           </div>
@@ -558,6 +592,9 @@ const RankingTab = ({
                 <TableHead className="font-medium" style={{ color: "#E0E0E0" }}>Pace</TableHead>
                 <TableHead className="font-medium" style={{ color: "#E0E0E0" }}>Tempo</TableHead>
                 <TableHead className="font-medium" style={{ color: "#E0E0E0" }}>Distância</TableHead>
+                {source === "public" && (
+                  <TableHead className="font-medium" style={{ color: "#E0E0E0" }}>Gênero</TableHead>
+                )}
                 {source === "audit" && (
                   <>
                     <TableHead className="font-medium" style={{ color: "#E0E0E0" }}>Status</TableHead>
@@ -590,6 +627,9 @@ const RankingTab = ({
                   <TableCell className="text-foreground">{formatPace(item.paceSecondsPerKm)}</TableCell>
                   <TableCell className="text-foreground">{formatTime(item.totalTimeSeconds)}</TableCell>
                   <TableCell className="text-foreground">{formatDistanceKm(item.distanceMeters)}</TableCell>
+                  {source === "public" && (
+                    <TableCell className="text-foreground">{item.gender ?? <span className="text-muted-foreground">-</span>}</TableCell>
+                  )}
                   {source === "audit" && (
                     <>
                       <TableCell className="text-foreground">{mapRunState(item.state)}</TableCell>
@@ -635,6 +675,8 @@ const CompeticaoDetalhesContent = () => {
   const [isFilterDialogOpen, setIsFilterDialogOpen] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [rankingSource, setRankingSource] = useState<"public" | "audit">("public");
+  const [publicacaoOpen, setPublicacaoOpen] = useState(false);
+  const [rankingGender, setRankingGender] = useState<Genero>("");
   const [inscricoesFilters, setInscricoesFilters] = useState<InscricoesFilters>({});
   const [inscricoesPage, setInscricoesPage] = useState(1);
 
@@ -651,7 +693,7 @@ const CompeticaoDetalhesContent = () => {
         await exportAttemptsCsv(id);
         toast.success("Tentativas exportadas com sucesso!");
       } else if (activeTab === "ranking") {
-        await exportRankingCsv(id);
+        await exportRankingCsv(id, rankingGender);
         toast.success("Ranking exportado com sucesso!");
       }
     } catch (e) {
@@ -736,17 +778,46 @@ const CompeticaoDetalhesContent = () => {
               Exportar
             </Button>
           ) : hasPermission("competicoes.edit") ? (
-            <Button
-              className="gap-2 border-0 hover:brightness-90 transition-all"
-              style={{ backgroundColor: "#1A1A1A", color: "#CCF725" }}
-              onClick={() => navigate(`/gestao-competicoes/${id}/editar`)}
-            >
-              <Pencil className="w-4 h-4" />
-              Editar dados
-            </Button>
+            <>
+              <Button
+                data-botao-publicacao
+                className="gap-2 border-0 hover:brightness-90 transition-all"
+                style={{ backgroundColor: "#1A1A1A", color: "#CCF725" }}
+                onClick={() => setPublicacaoOpen(true)}
+              >
+                <CalendarClock className="w-4 h-4" />
+                {competition.status !== "draft"
+                  ? "Publicação no app"
+                  : competition.publishAt
+                    ? `Programada: ${formatPublishAt(competition.publishAt)}`
+                    : "Oculta no app"}
+              </Button>
+              <Button
+                className="gap-2 border-0 hover:brightness-90 transition-all"
+                style={{ backgroundColor: "#1A1A1A", color: "#CCF725" }}
+                onClick={() => navigate(`/gestao-competicoes/${id}/editar`)}
+              >
+                <Pencil className="w-4 h-4" />
+                Editar dados
+              </Button>
+            </>
           ) : null}
         </div>
       </div>
+
+      <PublicacaoAppDialog
+        open={publicacaoOpen}
+        competitionId={competition.id}
+        competitionName={competition.title}
+        isDraft={competition.status === "draft"}
+        publishAt={competition.publishAt}
+        inscritos={competition.stats.totalRegistrations}
+        onClose={() => setPublicacaoOpen(false)}
+        onDone={() => {
+          setPublicacaoOpen(false);
+          refetch();
+        }}
+      />
 
       {/* Breadcrumb - Only visible on Detalhes tab */}
       {activeTab === "detalhes" && (
@@ -773,7 +844,7 @@ const CompeticaoDetalhesContent = () => {
         />
       )}
       {activeTab === "ranking" && (
-        <RankingTab competitionId={competition.id} onSourceChange={setRankingSource} />
+        <RankingTab competitionId={competition.id} onSourceChange={setRankingSource} onGenderChange={setRankingGender} />
       )}
 
       {/* Dialogs */}

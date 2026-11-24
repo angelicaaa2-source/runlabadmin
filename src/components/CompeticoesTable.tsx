@@ -8,7 +8,7 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { useNavigate } from "react-router-dom";
-import { MoreVertical, Pencil, Trash2, Power, XCircle, X, Loader2 } from "lucide-react";
+import { MoreVertical, Pencil, Trash2, Power, XCircle, X, Loader2, Copy, CalendarClock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -36,8 +36,10 @@ import { useCompetitions } from "@/hooks/useCompetitions";
 import type { CompetitionRow } from "@/hooks/useCompetitions";
 import { useCompeticoesFilters } from "@/contexts/CompeticoesFilterContext";
 import { supabase } from "@/lib/supabase";
+import { PublicacaoAppDialog } from "@/components/PublicacaoAppDialog";
+import { formatPublishAt, mensagemDeErro } from "@/lib/publicacao";
 
-const getStatusBadge = (status: string) => {
+const getStatusBadge = (status: string, publishAt: string | null = null) => {
   switch (status) {
     case "finalizada":
       return (
@@ -64,9 +66,16 @@ const getStatusBadge = (status: string) => {
         </Badge>
       );
     case "rascunho":
-      return (
-        <Badge variant="outline" className="bg-muted/10 text-muted-foreground border-muted">
-          Rascunho
+      return publishAt ? (
+        <div className="space-y-1">
+          <Badge variant="outline" className="bg-blue-500/10 text-blue-300 border-blue-500/20">
+            Programada
+          </Badge>
+          <div className="text-xs text-muted-foreground whitespace-nowrap">{formatPublishAt(publishAt)}</div>
+        </div>
+      ) : (
+        <Badge variant="outline" className="bg-muted/10 text-muted-foreground border-muted" title="Oculta no app e no site de compra">
+          Rascunho (oculta)
         </Badge>
       );
     default:
@@ -116,6 +125,8 @@ export const CompeticoesTable = () => {
   const [selectedItem, setSelectedItem] = useState<CompetitionRow | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
   const [closeConfirmText, setCloseConfirmText] = useState("");
+  const [duplicateDialogOpen, setDuplicateDialogOpen] = useState(false);
+  const [publicacaoRow, setPublicacaoRow] = useState<CompetitionRow | null>(null);
 
   useEffect(() => {
     if (!closeDialogOpen) setCloseConfirmText("");
@@ -174,6 +185,29 @@ export const CompeticoesTable = () => {
       setActionLoading(false);
       setToggleDialogOpen(false);
       setSelectedItem(null);
+    }
+  };
+
+  // ─── Duplicar ─────────────────────────────────────────
+
+  const handleDuplicate = async () => {
+    if (!selectedItem) return;
+    setActionLoading(true);
+    try {
+      const { data: novoId, error: dupError } = await supabase.rpc("admin_duplicate_competition", {
+        p_competition_id: selectedItem.id,
+      });
+      if (dupError) throw dupError;
+      toast.success("Corrida duplicada", {
+        description: "A cópia está oculta no app. Edite as informações e programe quando ela vai aparecer.",
+      });
+      setDuplicateDialogOpen(false);
+      setSelectedItem(null);
+      navigate(`/gestao-competicoes/${novoId}/editar`);
+    } catch (e) {
+      toast.error("Erro ao duplicar", { description: mensagemDeErro(e, "Não foi possível duplicar a competição.") });
+    } finally {
+      setActionLoading(false);
     }
   };
 
@@ -281,7 +315,7 @@ export const CompeticoesTable = () => {
                         <span className="text-muted-foreground">-</span>
                       )}
                     </TableCell>
-                    <TableCell>{getStatusBadge(row.status)}</TableCell>
+                    <TableCell>{getStatusBadge(row.status, row.publishAt)}</TableCell>
                     <TableCell>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
@@ -310,6 +344,35 @@ export const CompeticoesTable = () => {
                             >
                               <Pencil className="h-4 w-4 mr-3" />
                               Editar
+                            </DropdownMenuItem>
+                          )}
+
+                          {/* Duplicar */}
+                          {hasPermission("competicoes.edit") && (
+                            <DropdownMenuItem
+                              className="cursor-pointer py-3 px-3 rounded-md hover:bg-[#1A1A1A] border border-transparent hover:border-border/50 transition-all"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedItem(row);
+                                setDuplicateDialogOpen(true);
+                              }}
+                            >
+                              <Copy className="h-4 w-4 mr-3" />
+                              Duplicar
+                            </DropdownMenuItem>
+                          )}
+
+                          {/* Publicação no app */}
+                          {hasPermission("competicoes.edit") && (
+                            <DropdownMenuItem
+                              className="cursor-pointer py-3 px-3 rounded-md hover:bg-[#1A1A1A] border border-transparent hover:border-border/50 transition-all"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setPublicacaoRow(row);
+                              }}
+                            >
+                              <CalendarClock className="h-4 w-4 mr-3" />
+                              Publicação no app
                             </DropdownMenuItem>
                           )}
 
@@ -374,6 +437,59 @@ export const CompeticoesTable = () => {
           page={page}
           pageSize={PAGE_SIZE}
           onPageChange={setPage}
+        />
+      )}
+
+      {/* ─── Dialog: Duplicar ────────────────────────────── */}
+      <AlertDialog open={duplicateDialogOpen} onOpenChange={(o) => !actionLoading && setDuplicateDialogOpen(o)}>
+        <AlertDialogContent className="bg-[#3A3A3A] border-0 text-foreground max-w-md">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-xl font-semibold text-foreground">Duplicar competição?</AlertDialogTitle>
+            <AlertDialogDescription className="text-muted-foreground">
+              Cria uma cópia de <strong className="text-foreground">"{selectedItem?.nome}"</strong> com as mesmas
+              informações, banner, distâncias, lotes, preços e documentos. Inscrições e corridas não são copiadas.
+              A cópia nasce <strong className="text-foreground">oculta no app</strong>, com "(cópia)" no nome, e
+              abre para você editar.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="mt-6">
+            <AlertDialogCancel
+              className="bg-transparent border border-border text-foreground hover:bg-muted"
+              disabled={actionLoading}
+            >
+              Cancelar
+            </AlertDialogCancel>
+            <Button
+              className="bg-primary text-primary-foreground hover:bg-primary/90"
+              onClick={handleDuplicate}
+              disabled={actionLoading}
+            >
+              {actionLoading ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Duplicando...
+                </>
+              ) : (
+                "Duplicar"
+              )}
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {publicacaoRow && (
+        <PublicacaoAppDialog
+          open={!!publicacaoRow}
+          competitionId={publicacaoRow.id}
+          competitionName={publicacaoRow.nome}
+          isDraft={publicacaoRow.status === "rascunho"}
+          publishAt={publicacaoRow.publishAt}
+          inscritos={publicacaoRow.inscritos}
+          onClose={() => setPublicacaoRow(null)}
+          onDone={() => {
+            setPublicacaoRow(null);
+            refetch();
+          }}
         />
       )}
 

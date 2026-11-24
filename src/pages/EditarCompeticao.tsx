@@ -612,10 +612,23 @@ const EditarCompeticao = () => {
             throw deleteDocsError;
           }
 
-          if (storagePaths.length > 0) {
+          // Corrida duplicada usa o mesmo arquivo do original: só apaga do Storage o arquivo
+          // que nenhuma outra corrida usa mais.
+          const removedUrls = docsToDelete.map((d) => d.fileUrl);
+          const { data: stillUsed } = removedUrls.length > 0
+            ? await supabase.from("competition_documents").select("file_url").in("file_url", removedUrls)
+            : { data: [] };
+          const usedPaths = new Set(
+            ((stillUsed ?? []) as { file_url: string }[])
+              .map((d) => extractStoragePath(d.file_url))
+              .filter((path): path is string => path !== null),
+          );
+          const freePaths = stillUsed === null ? [] : storagePaths.filter((path) => !usedPaths.has(path));
+
+          if (freePaths.length > 0) {
             const { error: removeStorageError } = await supabase.storage
               .from("sistema")
-              .remove(storagePaths);
+              .remove(freePaths);
             if (removeStorageError) {
               console.warn("Documento removido do banco, mas o arquivo antigo permaneceu no Storage:", removeStorageError);
             }

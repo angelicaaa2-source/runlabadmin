@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
 import { useRealtimeRefetch } from "./useSupabaseRealtime";
 import { formatLocalDate, formatLocalDateRange, resolveLocalDate } from "@/lib/localDate";
+import { fetchGenders, rankByGender, type Genero } from "@/lib/genero";
 
 // ─── Types ───────────────────────────────────────────────
 
@@ -51,6 +52,8 @@ export type CompetitionDetail = {
   formatType: string;
   formatObservations: string | null;
   status: string;
+  /** Rascunho com data marcada para aparecer no app (null = sem data). */
+  publishAt: string | null;
   isFree: boolean;
   coverImageUrl: string | null;
   description: string | null;
@@ -97,6 +100,8 @@ export type RankingRow = {
   publicVisibility: "visible" | "hidden";
   hiddenReason: string | null;
   rawTotalTimeSeconds: number | null;
+  /** Gênero do cadastro ("Feminino" | "Masculino" | null). */
+  gender: string | null;
 };
 
 export type RankingSource = "public" | "audit";
@@ -339,6 +344,7 @@ export function useCompetitionDetails(id: string | undefined) {
         formatType: comp.format_type ?? "oficial",
         formatObservations: comp.format_observations ?? null,
         status: comp.status,
+        publishAt: comp.publish_at ?? null,
         isFree: comp.is_free,
         coverImageUrl: comp.cover_image_url,
         description: comp.description,
@@ -648,7 +654,8 @@ export function useCompetitionRanking(
   page: number = 1,
   pageSize: number = 10,
   source: RankingSource = "public",
-  search: string = ""
+  search: string = "",
+  gender: Genero = ""
 ) {
   const [data, setData] = useState<RankingRow[]>([]);
   const [total, setTotal] = useState(0);
@@ -695,6 +702,58 @@ export function useCompetitionRanking(
         source === "public"
           ? "run_id, user_id, distance_meters, avg_pace_seconds_per_km, total_time_seconds, rank, user_name, user_avatar_url, state, current_distance_meters"
           : "run_id, user_id, distance_meters, avg_pace_seconds_per_km, total_time_seconds, rank, user_name, user_avatar_url, state, current_distance_meters, public_visibility, hidden_reason, raw_total_time_seconds";
+      const tooSlow = (e: { code?: string; message: string }) =>
+        new Error(
+          e.code === "57014"
+            ? "O ranking demorou demais para carregar (tempo limite do banco). Tente novamente em instantes."
+            : `Erro ao carregar ranking: ${e.message}`
+        );
+
+      // Filtro de gênero (só no ranking público): busca o ranking inteiro, deixa só o gênero
+      // e refaz a posição dentro do gênero; a paginação passa a ser aqui.
+      if (source === "public" && gender) {
+        type Linha = Record<string, unknown> & { user_id: string; distance_meters: number; rank: number };
+        const all: Linha[] = [];
+        for (let start = 0; ; start += 1000) {
+          const { data: chunk, error: chunkError } = await supabase
+            .from(table)
+            .select(selectColumns)
+            .eq("competition_id", competitionId)
+            .order("distance_meters", { ascending: true })
+            .order("rank", { ascending: true })
+            .order("user_id", { ascending: true })
+            .range(start, start + 999);
+          if (chunkError) throw tooSlow(chunkError);
+          all.push(...((chunk ?? []) as unknown as Linha[]));
+          if (!chunk || chunk.length < 1000) break;
+        }
+        const genders = await fetchGenders(all.map((r) => r.user_id));
+        let ranked = rankByGender(all, genders, gender);
+        if (userIds) {
+          const wanted = new Set(userIds);
+          ranked = ranked.filter((r) => wanted.has(r.user_id));
+        }
+        setTotal(ranked.length);
+        setData(
+          ranked.slice(from, to + 1).map((r) => ({
+            position: r.genderRank,
+            userId: r.user_id,
+            userName: (r.user_name as string) || "Usuário desconhecido",
+            userAvatar: (r.user_avatar_url as string) || null,
+            paceSecondsPerKm: r.avg_pace_seconds_per_km as number | null,
+            distanceMeters: r.distance_meters,
+            totalTimeSeconds: r.total_time_seconds as number,
+            state: r.state as string,
+            currentDistanceMeters: (r.current_distance_meters as number | null) ?? null,
+            publicVisibility: "visible",
+            hiddenReason: null,
+            rawTotalTimeSeconds: null,
+            gender: genders[r.user_id] ?? null,
+          }))
+        );
+        return;
+      }
+
       let query = supabase
         .from(table)
         .select(selectColumns, { count: "exact" })
@@ -709,13 +768,7 @@ export function useCompetitionRanking(
         .order("rank", { ascending: true })
         .range(from, to);
 
-      if (runsError) {
-        throw new Error(
-          runsError.code === "57014"
-            ? "O ranking demorou demais para carregar (tempo limite do banco). Tente novamente em instantes."
-            : `Erro ao carregar ranking: ${runsError.message}`
-        );
-      }
+      if (runsError) throw tooSlow(runsError);
       setTotal(count || 0);
 
       if (!runs || runs.length === 0) {
@@ -723,6 +776,8 @@ export function useCompetitionRanking(
         return;
       }
 
+      const pageUserIds = (runs as unknown as { user_id: string }[]).map((r) => r.user_id);
+      const pageGenders = await fetchGenders(pageUserIds);
       const rows: RankingRow[] = runs.map((r) => ({
         position: r.rank,
         userId: r.user_id,
@@ -736,7 +791,11 @@ export function useCompetitionRanking(
         publicVisibility: r.public_visibility ?? "visible",
         hiddenReason: r.hidden_reason ?? null,
         rawTotalTimeSeconds: r.raw_total_time_seconds ?? null,
+        gender: null,
       }));
+      rows.forEach((row) => {
+        row.gender = pageGenders[row.userId] ?? null;
+      });
 
       setData(rows);
     } catch (e) {
@@ -747,7 +806,7 @@ export function useCompetitionRanking(
     } finally {
       setLoading(false);
     }
-  }, [competitionId, page, pageSize, source, search]);
+  }, [competitionId, page, pageSize, source, search, gender]);
 
   useEffect(() => {
     fetchRanking();
@@ -876,32 +935,53 @@ export async function exportRegistrationsCsv(competitionId: string) {
 }
 
 /** Exports ranking (best run per registered runner with at least one attempt) as CSV */
-export async function exportRankingCsv(competitionId: string) {
-  const { data: runs, error: runsError } = await supabase
-    .from("v_competition_leaderboard")
-    .select(
-      "user_id, distance_meters, avg_pace_seconds_per_km, total_time_seconds, rank, user_name"
-    )
-    .eq("competition_id", competitionId)
-    .order("distance_meters", { ascending: true })
-    .order("rank", { ascending: true });
-
-  if (runsError) throw runsError;
-  if (!runs || runs.length === 0) {
+export async function exportRankingCsv(competitionId: string, gender: Genero = "") {
+  type Linha = {
+    user_id: string;
+    distance_meters: number;
+    avg_pace_seconds_per_km: number | null;
+    total_time_seconds: number | null;
+    rank: number;
+    user_name: string | null;
+  };
+  const runs: Linha[] = [];
+  for (let start = 0; ; start += 1000) {
+    const { data: chunk, error: runsError } = await supabase
+      .from("v_competition_leaderboard")
+      .select("user_id, distance_meters, avg_pace_seconds_per_km, total_time_seconds, rank, user_name")
+      .eq("competition_id", competitionId)
+      .order("distance_meters", { ascending: true })
+      .order("rank", { ascending: true })
+      .order("user_id", { ascending: true })
+      .range(start, start + 999);
+    if (runsError) throw runsError;
+    runs.push(...((chunk ?? []) as Linha[]));
+    if (!chunk || chunk.length < 1000) break;
+  }
+  if (runs.length === 0) {
     throw new Error("Nenhum resultado no ranking para exportar");
   }
 
-  const headers = ["Distância", "Posição", "Corredor", "Pace", "Tempo"];
-  const rows = runs.map((r) => [
+  const genders = await fetchGenders(runs.map((r) => r.user_id));
+  const lista = gender
+    ? rankByGender(runs, genders, gender).map((r) => ({ ...r, posicao: r.genderRank }))
+    : runs.map((r) => ({ ...r, posicao: r.rank }));
+  if (lista.length === 0) {
+    throw new Error(`Nenhum resultado no ranking ${gender.toLowerCase()} para exportar`);
+  }
+
+  const headers = ["Distância", "Posição", "Corredor", "Gênero", "Pace", "Tempo"];
+  const rows = lista.map((r) => [
     formatDistanceKm(r.distance_meters),
-    `${r.rank}º`,
+    `${r.posicao}º`,
     r.user_name || "Desconhecido",
+    genders[r.user_id] ?? "",
     formatPace(r.avg_pace_seconds_per_km),
     formatTime(r.total_time_seconds),
   ]);
 
   const csv = generateCsv(headers, rows);
-  downloadCsv(csv, `ranking-${competitionId}.csv`);
+  downloadCsv(csv, gender ? `ranking-${gender.toLowerCase()}-${competitionId}.csv` : `ranking-${competitionId}.csv`);
 }
 
 /**
