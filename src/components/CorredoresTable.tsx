@@ -8,7 +8,7 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { useNavigate } from "react-router-dom";
-import { Loader2 } from "lucide-react";
+import { Loader2, Check } from "lucide-react";
 import type { CorredorRow } from "@/hooks/useCorredores";
 
 const getPlanoBadge = (plano: string) => {
@@ -49,6 +49,9 @@ export const CorredoresTable = ({ data, loading, error, refetch }: CorredoresTab
         <Table>
           <TableHeader>
             <TableRow className="bg-table-header hover:bg-table-header">
+              <TableHead className="w-[1%] whitespace-nowrap text-center font-medium" style={{ color: "#E0E0E0" }}>
+                Aceite WhatsApp
+              </TableHead>
               <TableHead className="font-medium" style={{ color: "#E0E0E0" }}>Nome</TableHead>
               <TableHead className="font-medium" style={{ color: "#E0E0E0" }}>E-mail</TableHead>
               <TableHead className="font-medium" style={{ color: "#E0E0E0" }}>Telefone</TableHead>
@@ -61,7 +64,7 @@ export const CorredoresTable = ({ data, loading, error, refetch }: CorredoresTab
           <TableBody>
             {data.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-center text-muted-foreground py-12">
+                <TableCell colSpan={8} className="text-center text-muted-foreground py-12">
                   Nenhum corredor encontrado.
                 </TableCell>
               </TableRow>
@@ -72,6 +75,13 @@ export const CorredoresTable = ({ data, loading, error, refetch }: CorredoresTab
                   className="border-border hover:bg-muted/50 cursor-pointer bg-[#262626]"
                   onClick={() => navigate(`/corredores/${corredor.id}`)}
                 >
+                  <TableCell className="text-center">
+                    {corredor.aceiteWhatsapp ? (
+                      <Check className="mx-auto h-5 w-5 text-primary" aria-label="Aceitou ofertas pelo WhatsApp" />
+                    ) : (
+                      <span className="sr-only">Não aceitou</span>
+                    )}
+                  </TableCell>
                   <TableCell className="font-medium text-foreground">{corredor.nome}</TableCell>
                   <TableCell className="text-foreground">{corredor.email}</TableCell>
                   <TableCell className="text-foreground">{corredor.telefone}</TableCell>

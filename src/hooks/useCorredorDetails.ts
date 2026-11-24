@@ -171,7 +171,7 @@ export function useCorredorDetails(id: string | undefined) {
       const payments: RunnerPayment[] = (paymentsResult.data || []).map((p) => ({
         id: p.id,
         plan_type: p.plan_type,
-        plan_name: p.description || (p.plan_type === "anual" ? "RUNLAB CLUB" : "CHALLENGE TICKET"),
+        plan_name: p.description || (p.plan_type === "anual" ? "RunLab Club" : "Inscrição avulsa"),
         billing_type: BILLING_TYPE_LABELS[p.billing_type] || p.billing_type,
         amount: Number(p.amount),
         status: p.status,

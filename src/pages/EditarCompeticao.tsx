@@ -18,6 +18,8 @@ import { toast } from "sonner";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { useCompetitionDetails } from "@/hooks/useCompetitionDetails";
+import { KitCorridaCampos } from "@/components/KitCorridaCampos";
+import { KIT_CORRIDA_VAZIO, carregarKitCorrida, salvarKitCorrida, type EscolhaKitCorrida } from "@/lib/kitCorrida";
 import { supabase } from "@/lib/supabase";
 import { calendarFromLocalDate, localDateFromCalendar } from "@/lib/localDate";
 import { PublicacaoAppCampos } from "@/components/PublicacaoAppCampos";
@@ -183,6 +185,12 @@ const EditarCompeticao = () => {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
   const { data: competition, loading: loadingCompetition, error: errorCompetition } = useCompetitionDetails(id);
+  // Kit da corrida (peças físicas): camiseta própria e medalha do kit.
+  const [kitCorrida, setKitCorrida] = useState<EscolhaKitCorrida>(KIT_CORRIDA_VAZIO);
+  useEffect(() => {
+    if (!id) return;
+    void carregarKitCorrida(id).then(setKitCorrida);
+  }, [id]);
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string>("");
   /** Patrocinadores desta corrida (logo, nome e link), na ordem do app. */
@@ -485,6 +493,9 @@ const EditarCompeticao = () => {
           toast.error("Os patrocinadores não foram salvos", { description: mensagemPatrocinio(e) });
         }
       }
+
+      // Kit da corrida (peças físicas).
+      await salvarKitCorrida(id, kitCorrida);
 
       // Sincronizar distâncias: calcular diff entre o que está selecionado
       // no formulário e o que existe no banco, inserindo as novas e removendo
@@ -1662,6 +1673,17 @@ const EditarCompeticao = () => {
                   )}
                 </div>
               </div>
+            </div>
+          </div>
+
+          {/* Kit da corrida (peças físicas) */}
+          <div className="mt-6">
+            <div className="rounded-[20px] border border-border/50 bg-[#2A2A2A] p-8">
+              <h2 className="text-lg font-semibold mb-2">Kit da corrida (peças físicas)</h2>
+              <p className="text-sm text-muted-foreground mb-6">
+                Vale para as inscrições com kit desta corrida: a camiseta e a medalha que vão na caixa.
+              </p>
+              <KitCorridaCampos value={kitCorrida} onChange={setKitCorrida} disabled={isSaving} />
             </div>
           </div>
 

@@ -22,6 +22,8 @@ import { supabase } from "@/lib/supabase";
 import { localDateFromCalendar } from "@/lib/localDate";
 import { PublicacaoAppCampos } from "@/components/PublicacaoAppCampos";
 import { MedalhaCorridaCampos } from "@/components/MedalhaCorridaCampos";
+import { KitCorridaCampos } from "@/components/KitCorridaCampos";
+import { KIT_CORRIDA_VAZIO, salvarKitCorrida, type EscolhaKitCorrida } from "@/lib/kitCorrida";
 import { PatrocinadoresCampos } from "@/components/PatrocinadoresCampos";
 import { erroDaLista, mensagemPatrocinio, salvarPatrocinadores, type ItemPatrocinador } from "@/lib/patrocinadores";
 import { erroDoArquivo, mensagemMedalha, salvarMedalha, type EscolhaMedalha } from "@/lib/medalha";
@@ -94,6 +96,7 @@ const CadastrarCampeonato = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [publicacao, setPublicacao] = useState<EscolhaPublicacao>({ modo: "now", data: "", hora: "08:00" });
   const [medalha, setMedalha] = useState<EscolhaMedalha>({ arquivo: null, nome: "", descricao: "" });
+  const [kitCorrida, setKitCorrida] = useState<EscolhaKitCorrida>(KIT_CORRIDA_VAZIO);
   const [patrocinadores, setPatrocinadores] = useState<ItemPatrocinador[]>([]);
   const [documento1, setDocumento1] = useState<File | null>(null);
   const [documento2, setDocumento2] = useState<File | null>(null);
@@ -381,6 +384,17 @@ const CadastrarCampeonato = () => {
             sort_order: i,
           });
         if (insertDocError) throw insertDocError;
+      }
+
+      // Kit da corrida (peças físicas): camiseta própria e medalha do kit, se definidas.
+      if (kitCorrida.camisetaId || kitCorrida.medalhaId) {
+        try {
+          await salvarKitCorrida(competitionId, kitCorrida);
+        } catch (e) {
+          toast.error("Corrida salva, mas o kit da corrida não foi gravado", {
+            description: `${e instanceof Error ? e.message : ""} Dá para definir depois em Editar.`,
+          });
+        }
       }
 
       // Patrocinadores (opcional): depois da corrida salva.
@@ -1188,6 +1202,15 @@ const CadastrarCampeonato = () => {
                 </div>
               ))}
             </div>
+          </div>
+
+          {/* Kit da corrida (peças físicas) */}
+          <div className="space-y-6 bg-card border border-border/50 rounded-2xl p-8">
+            <h2 className="text-lg font-semibold text-foreground mb-2">Kit da corrida (peças físicas)</h2>
+            <p className="text-sm text-muted-foreground -mt-1 mb-2">
+              Vale para as inscrições com kit desta corrida: a camiseta e a medalha que vão na caixa.
+            </p>
+            <KitCorridaCampos value={kitCorrida} onChange={setKitCorrida} disabled={isSubmitting} />
           </div>
 
           {/* Patrocinadores */}
