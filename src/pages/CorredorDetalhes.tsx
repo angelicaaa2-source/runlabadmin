@@ -263,7 +263,7 @@ const CorredorDetalhes = () => {
         <HistoricoCorridas userId={corredor.id} userName={corredor.name} />
 
         {/* Histórico de inscrições (com origem e "Nova inscrição") */}
-        <InscricoesCorredor userId={corredor.id} userName={corredor.name} creditBalance={corredor.creditBalance} />
+        <InscricoesCorredor userId={corredor.id} userName={corredor.name} creditBalance={corredor.creditBalance} onChanged={refetch} />
 
         {/* Histórico de Créditos */}
         <div className="mb-6">

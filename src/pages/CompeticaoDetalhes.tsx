@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Header } from "@/components/Header";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { usePermissions } from "@/hooks/usePermissions";
+import { CancelarInscricaoDialog } from "@/components/CancelarInscricaoDialog";
 import { ChevronLeft, ChevronRight, Pencil, Download, Filter, Loader2, Search, CalendarClock } from "lucide-react";
 import { PublicacaoAppDialog } from "@/components/PublicacaoAppDialog";
 import { formatPublishAt } from "@/lib/publicacao";
@@ -339,6 +340,9 @@ const InscricoesTab = ({
   onPageChange: (page: number) => void;
 }) => {
   const pageSize = 10;
+  const { hasPermission } = usePermissions();
+  const canEdit = hasPermission("competicoes.edit");
+  const [cancelar, setCancelar] = useState<{ id: string; nome: string } | null>(null);
   const { data, total, loading, error, refetch } = useCompetitionRegistrations(
     competitionId,
     page,
@@ -396,6 +400,7 @@ const InscricoesTab = ({
               <TableHead className="font-medium" style={{ color: "#E0E0E0" }}>
                 Status
               </TableHead>
+              {canEdit && <TableHead className="w-[110px]" />}
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -436,6 +441,21 @@ const InscricoesTab = ({
                   {reg.shirtSize ?? "-"}
                 </TableCell>
                 <TableCell>{getRegistrationStatusBadge(reg.status)}</TableCell>
+                {canEdit && (
+                  <TableCell className="text-right">
+                    {reg.status !== "cancelled" && (
+                      <Button
+                        data-cancelar-inscricao-btn
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setCancelar({ id: reg.id, nome: reg.userName })}
+                        className="text-red-400 hover:text-red-300 hover:bg-red-500/10"
+                      >
+                        Cancelar
+                      </Button>
+                    )}
+                  </TableCell>
+                )}
               </TableRow>
             ))}
           </TableBody>
@@ -447,6 +467,17 @@ const InscricoesTab = ({
         page={page}
         pageSize={pageSize}
         onPageChange={onPageChange}
+      />
+
+      <CancelarInscricaoDialog
+        open={cancelar !== null}
+        registrationId={cancelar?.id ?? null}
+        userName={cancelar?.nome ?? ""}
+        onClose={() => setCancelar(null)}
+        onDone={() => {
+          setCancelar(null);
+          refetch();
+        }}
       />
     </>
   );

@@ -5,6 +5,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Pagination } from "@/components/Pagination";
 import { NovaInscricaoDialog } from "@/components/NovaInscricaoDialog";
+import { CancelarInscricaoDialog } from "@/components/CancelarInscricaoDialog";
+import type { CancelamentoInfo } from "@/lib/cancelamento";
 import { REASON_LABELS, type ReasonType } from "@/lib/inscricoes";
 import { supabase } from "@/lib/supabase";
 import { usePermissions } from "@/hooks/usePermissions";
@@ -39,14 +41,17 @@ interface InscricoesCorredorProps {
   userId: string;
   userName: string;
   creditBalance: number;
+  /** Chamado depois de inscrever ou cancelar (atualiza saldo e histórico de créditos da página). */
+  onChanged?: () => void;
 }
 
 /**
  * Inscrições do atleta (mais recente primeiro), com a origem de cada uma: pagamento, crédito, gratuita ou
  * manual pelo admin (motivo, descrição, se descontou crédito e quem fez). Quem tem competicoes.edit vê
- * "Nova inscrição".
+ * "Nova inscrição" e "Cancelar" em cada inscrição ativa (com justificativa). Inscrição cancelada mostra quem
+ * cancelou, quando, a justificativa e se o crédito foi devolvido.
  */
-export const InscricoesCorredor = ({ userId, userName, creditBalance }: InscricoesCorredorProps) => {
+export const InscricoesCorredor = ({ userId, userName, creditBalance, onChanged }: InscricoesCorredorProps) => {
   const { hasPermission } = usePermissions();
   const canEdit = hasPermission(PERMISSION_KEYS.COMPETICOES_EDIT);
   const [page, setPage] = useState(1);
@@ -58,6 +63,8 @@ export const InscricoesCorredor = ({ userId, userName, creditBalance }: Inscrico
   const [manual, setManual] = useState<Record<string, ManualInfo>>({});
   const [names, setNames] = useState<Record<string, string>>({});
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [cancelados, setCancelados] = useState<Record<string, CancelamentoInfo>>({});
+  const [cancelId, setCancelId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -82,12 +89,17 @@ export const InscricoesCorredor = ({ userId, userName, creditBalance }: Inscrico
       const nextCredited = new Set<string>();
       const nextManual: Record<string, ManualInfo> = {};
       const nextNames: Record<string, string> = {};
+      const nextCancel: Record<string, CancelamentoInfo> = {};
       if (ids.length > 0) {
-        const [credRes, manRes] = await Promise.all([
+        const [credRes, manRes, cancRes] = await Promise.all([
           supabase.from("credit_transactions").select("competition_registration_id").eq("type", "usage").in("competition_registration_id", ids),
           supabase
             .from("admin_manual_registrations")
             .select("registration_id, reason_type, description, debited_credit, created_by")
+            .in("registration_id", ids),
+          supabase
+            .from("admin_registration_cancellations")
+            .select("registration_id, reason, previous_status, had_payment, credit_returned, cancelled_by, created_at")
             .in("registration_id", ids),
         ]);
         ((credRes.data ?? []) as { competition_registration_id: string }[]).forEach((c) => nextCredited.add(c.competition_registration_id));
@@ -95,7 +107,11 @@ export const InscricoesCorredor = ({ userId, userName, creditBalance }: Inscrico
         man.forEach((m) => {
           nextManual[m.registration_id] = m;
         });
-        const creators = [...new Set(man.map((m) => m.created_by).filter(Boolean))] as string[];
+        const canc = (cancRes.data ?? []) as CancelamentoInfo[];
+        canc.forEach((c) => {
+          nextCancel[c.registration_id] = c;
+        });
+        const creators = [...new Set([...man.map((m) => m.created_by), ...canc.map((c) => c.cancelled_by)].filter(Boolean))] as string[];
         if (creators.length > 0) {
           const { data: ps } = await supabase.from("profiles").select("id, full_name").in("id", creators);
           ((ps ?? []) as { id: string; full_name: string | null }[]).forEach((p) => {
@@ -106,6 +122,7 @@ export const InscricoesCorredor = ({ userId, userName, creditBalance }: Inscrico
       setCredited(nextCredited);
       setManual(nextManual);
       setNames(nextNames);
+      setCancelados(nextCancel);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Erro ao carregar as inscrições");
       setRows([]);
@@ -158,7 +175,7 @@ export const InscricoesCorredor = ({ userId, userName, creditBalance }: Inscrico
           <table className="w-full">
             <thead className="bg-table-header">
               <tr>
-                {["Data", "Competição", "Distância", "Lote", "Status", "Origem"].map((h) => (
+                {["Data", "Competição", "Distância", "Lote", "Status", "Origem", ""].map((h) => (
                   <th key={h} className={th} style={{ color: "#E0E0E0" }}>
                     {h}
                   </th>
@@ -168,19 +185,19 @@ export const InscricoesCorredor = ({ userId, userName, creditBalance }: Inscrico
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={6} className="px-6 py-8 text-center text-muted-foreground text-sm">
+                  <td colSpan={7} className="px-6 py-8 text-center text-muted-foreground text-sm">
                     <Loader2 className="h-5 w-5 animate-spin inline-block" />
                   </td>
                 </tr>
               ) : error ? (
                 <tr>
-                  <td colSpan={6} className="px-6 py-8 text-center text-destructive text-sm">
+                  <td colSpan={7} className="px-6 py-8 text-center text-destructive text-sm">
                     {error}
                   </td>
                 </tr>
               ) : rows.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-6 py-8 text-center text-muted-foreground text-sm">
+                  <td colSpan={7} className="px-6 py-8 text-center text-muted-foreground text-sm">
                     Nenhuma inscrição.
                   </td>
                 </tr>
@@ -216,8 +233,31 @@ export const InscricoesCorredor = ({ userId, userName, creditBalance }: Inscrico
                         <Badge variant="outline" className={st.cls}>
                           {st.label}
                         </Badge>
+                        {cancelados[r.id] && (
+                          <div data-info-cancelamento className="mt-1 space-y-0.5 text-xs text-muted-foreground max-w-[260px]">
+                            <div>
+                              Em {formatRunDateTime(cancelados[r.id].created_at)}
+                              {names[cancelados[r.id].cancelled_by] ? ` por ${names[cancelados[r.id].cancelled_by]}` : ""}
+                            </div>
+                            <div>"{cancelados[r.id].reason}"</div>
+                            {cancelados[r.id].credit_returned && <div>Crédito devolvido</div>}
+                          </div>
+                        )}
                       </td>
                       <td className={td}>{origem(r)}</td>
+                      <td className={`${td} text-right`}>
+                        {canEdit && r.status !== "cancelled" && (
+                          <Button
+                            data-cancelar-inscricao-btn
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setCancelId(r.id)}
+                            className="text-red-400 hover:text-red-300 hover:bg-red-500/10"
+                          >
+                            Cancelar
+                          </Button>
+                        )}
+                      </td>
                     </tr>
                   );
                 })
@@ -228,6 +268,18 @@ export const InscricoesCorredor = ({ userId, userName, creditBalance }: Inscrico
       </Card>
       {total > PAGE_SIZE && <Pagination total={total} page={page} pageSize={PAGE_SIZE} onPageChange={setPage} />}
 
+      <CancelarInscricaoDialog
+        open={cancelId !== null}
+        registrationId={cancelId}
+        userName={userName}
+        onClose={() => setCancelId(null)}
+        onDone={() => {
+          setCancelId(null);
+          load();
+          onChanged?.();
+        }}
+      />
+
       <NovaInscricaoDialog
         open={dialogOpen}
         userId={userId}
@@ -237,6 +289,7 @@ export const InscricoesCorredor = ({ userId, userName, creditBalance }: Inscrico
         onDone={() => {
           setDialogOpen(false);
           load();
+          onChanged?.();
         }}
       />
     </div>
