@@ -347,7 +347,7 @@ export const FinanceiroOverview = () => {
                 outerRadius={90}
                 paddingAngle={0}
                 dataKey="value"
-                label={renderPieLabel}
+                label={renderPercentLabel}
                 labelLine={false}
               >
                 {receiptData.map((entry, index) => (
@@ -484,6 +484,31 @@ function renderPieLabel({
       <tspan x={x} dy="14">
         ({value}%)
       </tspan>
+    </text>
+  );
+}
+
+/** Só a % dentro da fatia (5 fatias: o nome fica na legenda). Fatias pequenas ficam sem número. */
+function renderPercentLabel({
+  cx,
+  cy,
+  midAngle,
+  outerRadius,
+  value,
+}: {
+  cx: number;
+  cy: number;
+  midAngle: number;
+  outerRadius: number;
+  value: number;
+}) {
+  if (value < 6) return null;
+  const radius = outerRadius * 0.65;
+  const x = cx + radius * Math.cos((-midAngle * Math.PI) / 180);
+  const y = cy + radius * Math.sin((-midAngle * Math.PI) / 180);
+  return (
+    <text x={x} y={y} fill="#000" textAnchor="middle" dominantBaseline="middle" fontSize={12} fontWeight={600}>
+      {value}%
     </text>
   );
 }

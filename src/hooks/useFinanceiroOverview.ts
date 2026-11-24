@@ -24,11 +24,67 @@ export interface MonthlyBarItem {
   monthIndex: number;
 }
 
-const RECEIPT_COLORS: Record<string, string> = {
-  Créditos: "#FF8A4C",
-  "Inscrição na corrida": "#CCF725",
+// Pizza "Receita por tipo" (24/11/2026): tipo + avulsa ou com kit. Mesma
+// família de cor por tipo (laranja = créditos, verde = na corrida).
+const RECEIPT_SLICES = [
+  "Créditos · avulsa",
+  "Créditos · com kit",
+  "Na corrida · avulsa",
+  "Na corrida · com kit",
+  "RunLab Club",
+] as const;
+type ReceiptSlice = (typeof RECEIPT_SLICES)[number];
+
+const RECEIPT_COLORS: Record<ReceiptSlice, string> = {
+  "Créditos · avulsa": "#FF8A4C",
+  "Créditos · com kit": "#FFC4A3",
+  "Na corrida · avulsa": "#CCF725",
+  "Na corrida · com kit": "#E8F5A0",
   "RunLab Club": "#5BC0EB",
 };
+
+type LinhaPlano = "avulsa" | "kit" | "club";
+
+/** Linha do plano pelo nome ("Inscrição avulsa", "Inscrição com kit", "RunLab Club") ou slug. */
+function linhaDoPlano(nome: string): LinhaPlano | null {
+  const n = nome.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+  if (/club/.test(n)) return "club";
+  if (/kit|pack/.test(n)) return "kit";
+  if (/avulsa|ticket/.test(n)) return "avulsa";
+  return null;
+}
+
+/**
+ * Divide um pagamento de créditos entre avulsa, com kit e Club. Carrinho
+ * ("2x Inscrição avulsa + 1x Inscrição com kit (M)") é rateado pelo preço de
+ * tabela de cada linha, com o desconto proporcional; compra de um produto só
+ * vai inteira para o plano dela.
+ */
+function divideCreditos(
+  amount: number,
+  description: string | null,
+  slug: string | null,
+  planType: string | null,
+  precoPorLinha: Record<LinhaPlano, number>,
+): Partial<Record<LinhaPlano, number>> {
+  const partes = (description ?? "").split(" + ").map((t) => t.trim().match(/^(\d+)\s*x\s+(.+?)(\s*\([^)]*\))?$/i));
+  if (description && /^\d+\s*x\s/i.test(description) && partes.every(Boolean)) {
+    const linhas = partes.map((m) => ({ linha: linhaDoPlano(m![2]), qtd: Number(m![1]) || 1 }));
+    if (linhas.every((l) => l.linha)) {
+      const tabela = linhas.map((l) => l.qtd * (precoPorLinha[l.linha!] || 0));
+      const soma = tabela.reduce((a, b) => a + b, 0);
+      if (soma > 0) {
+        const out: Partial<Record<LinhaPlano, number>> = {};
+        linhas.forEach((l, i) => {
+          out[l.linha!] = (out[l.linha!] ?? 0) + (amount * tabela[i]) / soma;
+        });
+        return out;
+      }
+    }
+  }
+  if (planType === "anual") return { club: amount };
+  return { [linhaDoPlano(slug ?? "") === "kit" ? "kit" : "avulsa"]: amount };
+}
 
 const PARTNER_COLOR_PALETTE = ["#CCF725", "#8B9D00", "#E8F5A0", "#5A6700", "#D4FF66", "#A8C400"];
 const PARTNER_UNCLASSIFIED_COLOR = "#666";
@@ -50,7 +106,7 @@ async function fetchOverviewData(year: number, month: number) {
   // ── 1) runner_payments confirmados no período (cash basis) ──────
   const { data: payments, error: paymentsError } = await supabase
     .from("runner_payments")
-    .select("id, amount, plan_id, plan_type, status, paid_at, user_id, lot_id")
+    .select("id, amount, plan_id, plan_type, status, paid_at, user_id, lot_id, description")
     .in("status", ["CONFIRMED", "RECEIVED"])
     .not("paid_at", "is", null)
     .gte("paid_at", start)
@@ -61,25 +117,54 @@ async function fetchOverviewData(year: number, month: number) {
   const paymentsList = payments ?? [];
   const faturamentoTotal = paymentsList.reduce((acc, p) => acc + Number(p.amount), 0);
 
-  // Novos assinantes do mês: usuários únicos que pagaram um plano anual.
-  const assinantesSet = new Set(
-    paymentsList.filter((p) => p.plan_type === "anual").map((p) => p.user_id),
-  );
+  // Planos (slug e preço de tabela) e lotes (com kit ou não) para dividir a receita.
+  const lotIds = [...new Set(paymentsList.map((p) => p.lot_id).filter(Boolean))] as string[];
+  const [{ data: planos, error: planosError }, { data: lotes, error: lotesError }] = await Promise.all([
+    supabase.from("plans").select("id, slug, price"),
+    lotIds.length
+      ? supabase.from("competition_lots").select("id, has_kit").in("id", lotIds)
+      : Promise.resolve({ data: [] as { id: string; has_kit: boolean }[], error: null }),
+  ]);
+  if (planosError) throw planosError;
+  if (lotesError) throw lotesError;
+  const slugDoPlano = new Map((planos ?? []).map((pl) => [pl.id as string, pl.slug as string]));
+  const precoPorLinha: Record<LinhaPlano, number> = { avulsa: 0, kit: 0, club: 0 };
+  (planos ?? []).forEach((pl) => {
+    const linha = ({ "challenge-ticket": "avulsa", "challenge-pack": "kit", "runlab-club": "club" } as const)[
+      pl.slug as "challenge-ticket" | "challenge-pack" | "runlab-club"
+    ];
+    if (linha) precoPorLinha[linha] = Number(pl.price);
+  });
+  const loteComKit = new Map((lotes ?? []).map((l) => [l.id, !!l.has_kit]));
 
-  // Pizza "Receita por tipo", com os nomes padrão (23/11/2026):
-  // - Créditos: inscrição avulsa ou com kit comprada no checkout geral (vira crédito)
-  // - Inscrição na corrida: compra direto na página de uma corrida (lot_id presente)
-  // - RunLab Club: pacote de 12 inscrições
-  const byReceiptType: Record<string, number> = { Créditos: 0, "Inscrição na corrida": 0, "RunLab Club": 0 };
+  // Pizza "Receita por tipo": créditos (checkout geral) e na corrida (lot_id),
+  // cada um em avulsa e com kit, mais o RunLab Club (também quando vem no carrinho).
+  const byReceiptType: Record<ReceiptSlice, number> = {
+    "Créditos · avulsa": 0,
+    "Créditos · com kit": 0,
+    "Na corrida · avulsa": 0,
+    "Na corrida · com kit": 0,
+    "RunLab Club": 0,
+  };
+  // Novos assinantes do mês: usuários únicos que compraram o RunLab Club (sozinho ou no carrinho).
+  const assinantesSet = new Set<string>();
   paymentsList.forEach((p) => {
     const amount = Number(p.amount);
-    if (p.plan_type === "anual") {
-      byReceiptType["RunLab Club"] += amount;
-    } else if (p.lot_id) {
-      byReceiptType["Inscrição na corrida"] += amount;
-    } else {
-      byReceiptType.Créditos += amount;
+    if (p.lot_id) {
+      byReceiptType[loteComKit.get(p.lot_id) ? "Na corrida · com kit" : "Na corrida · avulsa"] += amount;
+      return;
     }
+    const partes = divideCreditos(
+      amount,
+      p.description,
+      p.plan_id ? slugDoPlano.get(p.plan_id) ?? null : null,
+      p.plan_type,
+      precoPorLinha,
+    );
+    byReceiptType["Créditos · avulsa"] += partes.avulsa ?? 0;
+    byReceiptType["Créditos · com kit"] += partes.kit ?? 0;
+    byReceiptType["RunLab Club"] += partes.club ?? 0;
+    if (partes.club && p.user_id) assinantesSet.add(p.user_id);
   });
 
   // ── 3) Inscrições no período ─────────────────────────────────────
@@ -111,7 +196,7 @@ async function fetchOverviewData(year: number, month: number) {
   const totalReceita = faturamentoTotal || 1;
   const receiptPie: PieDataItem[] = [];
 
-  (["Créditos", "Inscrição na corrida", "RunLab Club"] as const).forEach((name) => {
+  RECEIPT_SLICES.forEach((name) => {
     const value = byReceiptType[name];
     if (value > 0) {
       receiptPie.push({
