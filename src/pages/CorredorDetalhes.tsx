@@ -10,6 +10,7 @@ import { ExcluirContaButton } from "@/components/ExcluirContaButton";
 import { AdicionarCreditosButton } from "@/components/AdicionarCreditosButton";
 import { LancarCorridaButton } from "@/components/LancarCorridaButton";
 import { HistoricoCorridas } from "@/components/HistoricoCorridas";
+import { InscricoesCorredor } from "@/components/InscricoesCorredor";
 import { RemoverCreditosButton } from "@/components/RemoverCreditosButton";
 
 function formatPrice(value: number): string {
@@ -82,10 +83,6 @@ const CorredorDetalhes = () => {
       </div>
     );
   }
-
-  const confirmedPayments = corredor.payments.filter(
-    (p) => p.status === "CONFIRMED" || p.status === "RECEIVED"
-  );
 
   return (
     <div className="min-h-screen bg-background">
@@ -261,6 +258,9 @@ const CorredorDetalhes = () => {
           </div>
         </div>
 
+        {/* Inscrições (com origem e "Nova inscrição") */}
+        <InscricoesCorredor userId={corredor.id} userName={corredor.name} creditBalance={corredor.creditBalance} />
+
         {/* Histórico de corridas (todas as tentativas, com ranking e "Corrigir") */}
         <HistoricoCorridas userId={corredor.id} userName={corredor.name} />
 
@@ -310,59 +310,16 @@ const CorredorDetalhes = () => {
           </Card>
         </div>
 
-        {/* Planos contratados */}
-        <div className="mb-6">
-          <h2 className="text-xl font-semibold text-foreground mb-4">Planos contratados</h2>
-          <Card className="bg-card border-0 rounded-lg overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-table-header">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-sm font-medium" style={{ color: "#E0E0E0" }}>Nome</th>
-                    <th className="px-6 py-3 text-left text-sm font-medium" style={{ color: "#E0E0E0" }}>Tipo</th>
-                    <th className="px-6 py-3 text-left text-sm font-medium" style={{ color: "#E0E0E0" }}>Valor pago</th>
-                    <th className="px-6 py-3 text-left text-sm font-medium" style={{ color: "#E0E0E0" }}>Forma de pagamento</th>
-                    <th className="px-6 py-3 text-left text-sm font-medium" style={{ color: "#E0E0E0" }}>Data</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {confirmedPayments.length === 0 ? (
-                    <tr>
-                      <td colSpan={5} className="px-6 py-8 text-center text-muted-foreground text-sm">
-                        Nenhum plano contratado.
-                      </td>
-                    </tr>
-                  ) : (
-                    confirmedPayments.map((payment, index) => (
-                      <tr
-                        key={payment.id}
-                        className={`border-t border-border ${index % 2 === 0 ? "bg-table-row" : ""}`}
-                      >
-                        <td className="px-6 py-4 text-sm text-foreground">{payment.plan_name}</td>
-                        <td className="px-6 py-4 text-sm text-foreground">
-                          {payment.plan_type === "anual" ? "Assinatura" : "Avulso"}
-                        </td>
-                        <td className="px-6 py-4 text-sm text-foreground">{formatPrice(payment.amount)}</td>
-                        <td className="px-6 py-4 text-sm text-foreground">{payment.billing_type}</td>
-                        <td className="px-6 py-4 text-sm text-foreground">{formatDateOnly(payment.paid_at)}</td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </Card>
-        </div>
-
-        {/* Cobranças realizadas */}
+        {/* Compras (todas, pagas ou não, com status) */}
         <div>
-          <h2 className="text-xl font-semibold text-foreground mb-4">Cobranças realizadas</h2>
+          <h2 className="text-xl font-semibold text-foreground mb-4">Compras</h2>
           <Card className="bg-card border-0 rounded-lg overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead className="bg-table-header">
                   <tr>
                     <th className="px-6 py-3 text-left text-sm font-medium" style={{ color: "#E0E0E0" }}>Plano</th>
+                    <th className="px-6 py-3 text-left text-sm font-medium" style={{ color: "#E0E0E0" }}>Tipo</th>
                     <th className="px-6 py-3 text-left text-sm font-medium" style={{ color: "#E0E0E0" }}>Forma de pagamento</th>
                     <th className="px-6 py-3 text-left text-sm font-medium" style={{ color: "#E0E0E0" }}>Parcelas</th>
                     <th className="px-6 py-3 text-left text-sm font-medium" style={{ color: "#E0E0E0" }}>Data</th>
@@ -374,8 +331,8 @@ const CorredorDetalhes = () => {
                 <tbody>
                   {corredor.payments.length === 0 ? (
                     <tr>
-                      <td colSpan={7} className="px-6 py-8 text-center text-muted-foreground text-sm">
-                        Nenhuma cobrança registrada.
+                      <td colSpan={8} className="px-6 py-8 text-center text-muted-foreground text-sm">
+                        Nenhuma compra registrada.
                       </td>
                     </tr>
                   ) : (
@@ -385,6 +342,9 @@ const CorredorDetalhes = () => {
                         className={`border-t border-border ${index % 2 === 0 ? "bg-table-row" : ""}`}
                       >
                         <td className="px-6 py-4 text-sm text-foreground">{payment.plan_name}</td>
+                        <td className="px-6 py-4 text-sm text-foreground">
+                          {payment.plan_type === "anual" ? "Assinatura" : "Avulso"}
+                        </td>
                         <td className="px-6 py-4 text-sm text-foreground">{payment.billing_type}</td>
                         <td className="px-6 py-4 text-sm text-foreground">{payment.installment_count || 1}x</td>
                         <td className="px-6 py-4 text-sm text-foreground">{formatDateOnly(payment.created_at)}</td>
