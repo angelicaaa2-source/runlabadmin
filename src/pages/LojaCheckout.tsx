@@ -6,6 +6,7 @@ import { Header } from "@/components/Header";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/lib/supabase";
 import { usePermissions } from "@/hooks/usePermissions";
+import { ProdutosLoja } from "@/components/loja/ProdutosLoja";
 
 /**
  * Loja do checkout (começo da fase 3 do novo checkout, 23/11/2026): foto de
@@ -183,10 +184,11 @@ const LojaCheckout = () => {
         <div>
           <h1 className="text-2xl font-semibold text-foreground">Loja do checkout</h1>
           <p className="text-sm text-muted-foreground">
-            Foto de cada produto da tela de inscrição. JPG, PNG ou WebP até 3 MB, de preferência quadrada. A troca
-            aparece no checkout na hora.
+            Tudo que aparece no checkout: as inscrições e os produtos do estoque. Fotos em JPG, PNG ou WebP até 3 MB, de
+            preferência quadradas. A troca aparece no checkout na hora.
           </p>
         </div>
+        <h2 className="text-xl font-semibold text-foreground">Inscrições</h2>
         {isLoading && (
           <p className="text-muted-foreground">
             <Loader2 className="mr-2 inline h-5 w-5 animate-spin" />
@@ -208,6 +210,7 @@ const LojaCheckout = () => {
             />
           ))}
         </div>
+        <ProdutosLoja podeEditar={podeEditar} />
       </main>
     </div>
   );
