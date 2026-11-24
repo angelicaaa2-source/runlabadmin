@@ -219,10 +219,10 @@ const EditarCompeticao = () => {
     setMedalhaOcupada(true);
     try {
       await removerMedalha(id);
-      toast.success("Medalha removida do app");
+      toast.success("Badge removido do app");
       await recarregarMedalha();
     } catch (e) {
-      toast.error("Não foi possível remover a medalha", { description: mensagemMedalha(e) });
+      toast.error("Não foi possível remover o badge", { description: mensagemMedalha(e) });
     } finally {
       setMedalhaOcupada(false);
     }
@@ -233,12 +233,12 @@ const EditarCompeticao = () => {
     setMedalhaOcupada(true);
     try {
       const r = await salvarMedalha(id, { arquivo: null, nome: medalhaAtual.name, descricao: medalhaAtual.description ?? "" }, medalhaAtual.name);
-      toast.success("Medalha reativada", {
+      toast.success("Badge reativado", {
         description: r.awarded_now > 0 ? `${r.awarded_now} atleta(s) ganharam agora.` : undefined,
       });
       await recarregarMedalha();
     } catch (e) {
-      toast.error("Não foi possível reativar a medalha", { description: mensagemMedalha(e) });
+      toast.error("Não foi possível reativar o badge", { description: mensagemMedalha(e) });
     } finally {
       setMedalhaOcupada(false);
     }
@@ -399,11 +399,11 @@ const EditarCompeticao = () => {
     }
     const erroMedalha = erroDoArquivo(medalha.arquivo);
     if (erroMedalha) {
-      toast.error(`Medalha da corrida: ${erroMedalha}`);
+      toast.error(`Badge da corrida: ${erroMedalha}`);
       return;
     }
     if (!medalhaAtual && !medalha.arquivo && (medalha.nome.trim() || medalha.descricao.trim())) {
-      toast.error("Medalha da corrida: escolha a imagem da medalha (ou apague o nome e a descrição).");
+      toast.error("Badge da corrida: escolha a imagem do badge (ou apague o nome e a descrição).");
       return;
     }
     setIsSaving(true);
@@ -731,10 +731,10 @@ const EditarCompeticao = () => {
         try {
           const r = await salvarMedalha(id, medalha, data.nome);
           if (r.awarded_now > 0) {
-            toast.success(`Medalha da corrida: ${r.awarded_now} atleta(s) que já concluíram ganharam agora.`);
+            toast.success(`Badge da corrida: ${r.awarded_now} atleta(s) que já concluíram ganharam agora.`);
           }
         } catch (e) {
-          toast.error("Dados salvos, mas a medalha da corrida não", { description: mensagemMedalha(e) });
+          toast.error("Dados salvos, mas o badge da corrida não", { description: mensagemMedalha(e) });
         }
       }
 
@@ -1687,10 +1687,10 @@ const EditarCompeticao = () => {
             </div>
           </div>
 
-          {/* Medalha da corrida */}
+          {/* Badge da corrida (não é a medalha física) */}
           <div className="mt-6">
             <div className="rounded-[20px] border border-border/50 bg-[#2A2A2A] p-8">
-              <h2 className="text-lg font-semibold mb-6">Medalha da corrida (opcional)</h2>
+              <h2 className="text-lg font-semibold mb-6">Badge da corrida (opcional)</h2>
               <MedalhaCorridaCampos
                 value={medalha}
                 onChange={setMedalha}
