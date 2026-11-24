@@ -20,6 +20,8 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
 import { localDateFromCalendar } from "@/lib/localDate";
+import { PublicacaoAppCampos } from "@/components/PublicacaoAppCampos";
+import { erroDaEscolha, escolhaIso, formatPublishAt, type EscolhaPublicacao, type ModoPublicacao } from "@/lib/publicacao";
 
 const formSchema = z.object({
   nome: z.string().min(1, "Nome é obrigatório"),
@@ -86,6 +88,7 @@ const CadastrarCampeonato = () => {
     { id: 1, nome: "", valor: "", descricao: "", permitirCreditos: false, possuiKit: "sim" }
   ]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [publicacao, setPublicacao] = useState<EscolhaPublicacao>({ modo: "now", data: "", hora: "08:00" });
   const [documento1, setDocumento1] = useState<File | null>(null);
   const [documento2, setDocumento2] = useState<File | null>(null);
   const [documento3, setDocumento3] = useState<File | null>(null);
@@ -184,7 +187,13 @@ const CadastrarCampeonato = () => {
     setLotes([...lotes, { id: lotes.length + 1, nome: "", valor: "", descricao: "", permitirCreditos: false, possuiKit: "sim" }]);
   };
 
-  const saveCompetition = async (status: "draft" | "open") => {
+  /**
+   * "now" grava aberta (aparece no app); "schedule" e "hide" gravam em rascunho (oculta).
+   * Na programada, publish_at entra só no fim, depois de banner, distâncias, lotes e documentos salvos,
+   * para o relógio do banco nunca publicar uma corrida pela metade.
+   */
+  const saveCompetition = async (modo: ModoPublicacao, publishAtIso: string | null = null) => {
+    const status = modo === "now" ? "open" : "draft";
     const data = form.getValues();
     if (!data.nome?.trim()) {
       toast.error("Nome é obrigatório");
@@ -358,7 +367,27 @@ const CadastrarCampeonato = () => {
         if (insertDocError) throw insertDocError;
       }
 
-      toast.success(status === "draft" ? "Rascunho salvo!" : "Competição publicada!");
+      if (modo === "schedule" && publishAtIso) {
+        const { error: publishAtError } = await supabase
+          .from("competitions")
+          .update({ publish_at: publishAtIso })
+          .eq("id", competitionId);
+        if (publishAtError) {
+          toast.error("Competição salva oculta, mas a programação não foi gravada", {
+            description: "Use \"Publicação no app\" no menu da corrida para programar.",
+          });
+          navigate("/gestao-competicoes");
+          return;
+        }
+      }
+
+      toast.success(
+        modo === "now"
+          ? "Competição publicada!"
+          : modo === "schedule"
+            ? `Competição programada para ${formatPublishAt(publishAtIso)}`
+            : "Rascunho salvo! A corrida está oculta no app.",
+      );
       navigate("/gestao-competicoes");
     } catch (e) {
       const msg = e instanceof Error ? e.message : typeof e === "object" && e !== null && "message" in e ? String((e as { message: unknown }).message) : String(e);
@@ -370,11 +399,16 @@ const CadastrarCampeonato = () => {
   };
 
   const handleSalvarRascunho = () => {
-    saveCompetition("draft");
+    saveCompetition("hide");
   };
 
   const onSubmit = (data: FormData) => {
-    saveCompetition("open");
+    const erro = erroDaEscolha(publicacao);
+    if (erro) {
+      toast.error(erro);
+      return;
+    }
+    saveCompetition(publicacao.modo, escolhaIso(publicacao));
   };
 
   return (
@@ -1118,6 +1152,15 @@ const CadastrarCampeonato = () => {
             </div>
           </div>
 
+          {/* Publicação no app */}
+          <div className="space-y-6 bg-card border border-border/50 rounded-2xl p-8">
+            <h2 className="text-lg font-semibold text-foreground mb-6">Publicação no app</h2>
+            <p className="text-sm text-muted-foreground -mt-4 mb-2">
+              Quando a corrida aparece no app e no site de compra.
+            </p>
+            <PublicacaoAppCampos value={publicacao} onChange={setPublicacao} disabled={isSubmitting} />
+          </div>
+
           {/* Botão final */}
           <div className="flex justify-end pt-4">
             <Button
@@ -1126,7 +1169,13 @@ const CadastrarCampeonato = () => {
               disabled={isSubmitting}
             >
               <Check className="h-4 w-4 mr-2" />
-              {isSubmitting ? "Salvando..." : "Salvar e publicar"}
+              {isSubmitting
+                ? "Salvando..."
+                : publicacao.modo === "now"
+                  ? "Salvar e publicar"
+                  : publicacao.modo === "schedule"
+                    ? "Salvar e programar"
+                    : "Salvar oculta"}
             </Button>
           </div>
         </form>

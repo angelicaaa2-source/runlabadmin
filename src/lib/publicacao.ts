@@ -58,3 +58,52 @@ export function mensagemDeErro(e: unknown, padrao: string): string {
   const achou = PUBLICACAO_ERROS.find(([k]) => msg.includes(k));
   return achou ? achou[1] : msg || padrao;
 }
+
+export type ModoPublicacao = "now" | "schedule" | "hide";
+
+/** Escolha de publicação feita num formulário (cadastro ou edição da corrida). */
+export interface EscolhaPublicacao {
+  modo: ModoPublicacao;
+  /** YYYY-MM-DD (Brasília), só para "schedule". */
+  data: string;
+  /** HH:mm (Brasília), só para "schedule". */
+  hora: string;
+}
+
+/** Escolha inicial a partir do estado da corrida (status do banco e publish_at). */
+export function escolhaInicial(isDraft: boolean, publishAt: string | null | undefined): EscolhaPublicacao {
+  const partes = isoToBrasiliaParts(publishAt);
+  return {
+    modo: isDraft ? (publishAt ? "schedule" : "hide") : "now",
+    data: partes.date,
+    hora: partes.time || "08:00",
+  };
+}
+
+/** ISO da data e hora programadas (null quando não é "schedule" ou está incompleta). */
+export function escolhaIso(e: EscolhaPublicacao): string | null {
+  return e.modo === "schedule" ? brasiliaToIso(e.data, e.hora) : null;
+}
+
+/** Mensagem de erro da escolha, ou null quando está ok. */
+export function erroDaEscolha(e: EscolhaPublicacao): string | null {
+  if (e.modo !== "schedule") return null;
+  const iso = escolhaIso(e);
+  if (!iso) return "Escolha a data e a hora em que a corrida vai aparecer no app.";
+  if (new Date(iso).getTime() <= Date.now()) return "Escolha uma data e hora no futuro para a publicação.";
+  return null;
+}
+
+/** true quando a escolha muda o que está salvo na corrida. */
+export function escolhaMudou(e: EscolhaPublicacao, isDraft: boolean, publishAt: string | null | undefined): boolean {
+  if (e.modo === "now") return isDraft;
+  if (e.modo === "hide") return !isDraft || !!publishAt;
+  const iso = escolhaIso(e);
+  return !isDraft || iso !== (publishAt ? new Date(publishAt).toISOString() : null);
+}
+
+/** Texto do estado salvo da corrida. */
+export function estadoPublicacao(isDraft: boolean, publishAt: string | null | undefined): string {
+  if (!isDraft) return "Visível no app";
+  return publishAt ? `Programada para ${formatPublishAt(publishAt)}` : "Oculta no app (rascunho)";
+}

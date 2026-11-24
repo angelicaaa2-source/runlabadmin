@@ -20,6 +20,17 @@ import { cn } from "@/lib/utils";
 import { useCompetitionDetails } from "@/hooks/useCompetitionDetails";
 import { supabase } from "@/lib/supabase";
 import { calendarFromLocalDate, localDateFromCalendar } from "@/lib/localDate";
+import { PublicacaoAppCampos } from "@/components/PublicacaoAppCampos";
+import {
+  erroDaEscolha,
+  escolhaInicial,
+  escolhaIso,
+  escolhaMudou,
+  estadoPublicacao,
+  formatPublishAt,
+  mensagemDeErro,
+  type EscolhaPublicacao,
+} from "@/lib/publicacao";
 
 function formatPriceCentsToInput(cents: number | null): string {
   if (cents === null || cents === undefined) return "";
@@ -167,6 +178,7 @@ const EditarCompeticao = () => {
   const [outraDistanciaInput, setOutraDistanciaInput] = useState<string>("");
   const [availableChampionships, setAvailableChampionships] = useState<{ id: string; name: string }[]>([]);
   const [isSaving, setIsSaving] = useState(false);
+  const [publicacao, setPublicacao] = useState<EscolhaPublicacao>({ modo: "now", data: "", hora: "08:00" });
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
     defaultValues: defaultFormValues
@@ -238,6 +250,7 @@ const EditarCompeticao = () => {
       })),
     );
     setRemovedDocIds([]);
+    setPublicacao(escolhaInicial(competition.status === "draft", competition.publishAt));
   }, [competition, form]);
 
   // Carregar lista de patrocinadores da tabela competition_sponsors
@@ -316,6 +329,14 @@ const EditarCompeticao = () => {
     }
 
     const data = result.data;
+    const isDraft = competition?.status === "draft";
+    const publishAtSalvo = competition?.publishAt ?? null;
+    const mudouPublicacao = competition ? escolhaMudou(publicacao, isDraft, publishAtSalvo) : false;
+    const erroPublicacao = mudouPublicacao ? erroDaEscolha(publicacao) : null;
+    if (erroPublicacao) {
+      toast.error(erroPublicacao);
+      return;
+    }
     setIsSaving(true);
     try {
       const startsOn = localDateFromCalendar(data.competicaoInicio);
@@ -634,6 +655,33 @@ const EditarCompeticao = () => {
             }
           }
         }
+      }
+
+      // Publicação por último: quem tira do rascunho vê a corrida já com tudo salvo.
+      if (mudouPublicacao) {
+        const iso = escolhaIso(publicacao);
+        const { error: pubError } = await supabase.rpc("admin_set_competition_publication", {
+          p_competition_id: id,
+          p_mode: publicacao.modo,
+          p_publish_at: publicacao.modo === "schedule" ? iso : null,
+        });
+        if (pubError) {
+          toast.error("Dados salvos, mas a publicação no app não mudou", {
+            description: mensagemDeErro(pubError, "Tente pelo botão Publicação no app."),
+          });
+          navigate(`/gestao-competicoes/${id}`);
+          return;
+        }
+        toast.success("Dados salvos com sucesso!", {
+          description:
+            publicacao.modo === "now"
+              ? "Corrida publicada no app."
+              : publicacao.modo === "schedule"
+                ? `Corrida programada para ${formatPublishAt(iso)}.`
+                : "Corrida oculta no app.",
+        });
+        navigate(`/gestao-competicoes/${id}`);
+        return;
       }
 
       toast.success("Dados salvos com sucesso!");
@@ -1555,6 +1603,22 @@ const EditarCompeticao = () => {
                   )}
                 </div>
               </div>
+            </div>
+          </div>
+
+          {/* Publicação no app */}
+          <div className="mt-6">
+            <div className="rounded-[20px] border border-border/50 bg-[#2A2A2A] p-8">
+              <h2 className="text-lg font-semibold mb-2">Publicação no app</h2>
+              <p className="text-sm text-muted-foreground mb-6">Quando a corrida aparece no app e no site de compra.</p>
+              <PublicacaoAppCampos
+                value={publicacao}
+                onChange={setPublicacao}
+                disabled={isSaving}
+                podeEsconder={competition.status === "draft" || competition.stats.totalAthletes === 0}
+                inscritos={competition.stats.totalAthletes}
+                estadoAtual={estadoPublicacao(competition.status === "draft", competition.publishAt)}
+              />
             </div>
           </div>
 
