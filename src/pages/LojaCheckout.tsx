@@ -1,3 +1,4 @@
+import { useSearchParams } from "react-router-dom";
 import { useRef, useState, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -174,14 +175,19 @@ function LinhaPlano({ plano, podeEditar, onMudou }: { plano: PlanoLoja; podeEdit
   );
 }
 
+type AbaCheckout = "vendas" | "loja";
+
 const LojaCheckout = () => {
   const { hasPermission } = usePermissions();
   const podeEditar = hasPermission("financeiro.edit");
   const queryClient = useQueryClient();
   const { data: planos, isLoading, error } = usePlanos();
   const marcaLojaVista = useMarcaLojaVista();
+  const [params, setParams] = useSearchParams();
+  const aba: AbaCheckout = params.get("aba") === "loja" ? "loja" : "vendas";
+  const setAba = (nova: AbaCheckout) => setParams(nova === "loja" ? { aba: "loja" } : {}, { replace: true });
 
-  // Abriu a Loja do checkout: apaga a bolinha do menu até chegar venda nova.
+  // Abriu o Checkout: apaga a bolinha do menu até chegar venda nova.
   useEffect(() => {
     void marcaLojaVista();
   }, [marcaLojaVista]);
@@ -191,39 +197,64 @@ const LojaCheckout = () => {
       <Header />
       <main className="container mx-auto space-y-6 px-6 py-8 pt-24">
         <div>
-          <h1 className="text-2xl font-semibold text-foreground">Loja do checkout</h1>
+          <h1 className="text-2xl font-semibold text-foreground">Checkout</h1>
           <p className="text-sm text-muted-foreground">
-            Tudo que aparece no checkout: as inscrições e os produtos do estoque. Fotos em JPG, PNG ou WebP até 3 MB, de
-            preferência quadradas. A troca aparece no checkout na hora.
+            {aba === "vendas"
+              ? "Vendas pagas com produto físico (kit, camiseta, boné, medalha) que precisam ser enviadas."
+              : "Tudo que aparece no checkout: as inscrições e os produtos do estoque. Fotos em JPG, PNG ou WebP até 3 MB, de preferência quadradas. A troca aparece no checkout na hora."}
           </p>
         </div>
-        {/* Primeiro bloco: é o que se atualiza sozinho (vendas pagas chegando). */}
-        <VendasAEnviar />
 
-        <h2 className="text-xl font-semibold text-foreground">Inscrições</h2>
-        {isLoading && (
-          <p className="text-muted-foreground">
-            <Loader2 className="mr-2 inline h-5 w-5 animate-spin" />
-            Carregando produtos...
-          </p>
-        )}
-        {error && (
-          <p className="text-destructive">
-            Não foi possível carregar os produtos. {error instanceof Error ? error.message : ""}
-          </p>
-        )}
-        <div className="space-y-3">
-          {(planos ?? []).map((p) => (
-            <LinhaPlano
-              key={p.id}
-              plano={p}
-              podeEditar={podeEditar}
-              onMudou={() => queryClient.invalidateQueries({ queryKey: ["loja-checkout-planos"] })}
-            />
+        <div className="flex gap-6 border-b border-border">
+          {(
+            [
+              { valor: "vendas", texto: "Vendas a enviar" },
+              { valor: "loja", texto: "Loja" },
+            ] as { valor: AbaCheckout; texto: string }[]
+          ).map((item) => (
+            <button
+              key={item.valor}
+              onClick={() => setAba(item.valor)}
+              className={`-mb-px border-b-2 pb-2 text-sm transition-colors ${
+                aba === item.valor
+                  ? "border-[#CCF725] font-medium text-foreground"
+                  : "border-transparent text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              {item.texto}
+            </button>
           ))}
         </div>
-        <ProdutosLoja podeEditar={podeEditar} />
 
+        {aba === "vendas" ? (
+          <VendasAEnviar />
+        ) : (
+          <>
+            <h2 className="text-xl font-semibold text-foreground">Inscrições</h2>
+            {isLoading && (
+              <p className="text-muted-foreground">
+                <Loader2 className="mr-2 inline h-5 w-5 animate-spin" />
+                Carregando produtos...
+              </p>
+            )}
+            {error && (
+              <p className="text-destructive">
+                Não foi possível carregar os produtos. {error instanceof Error ? error.message : ""}
+              </p>
+            )}
+            <div className="space-y-3">
+              {(planos ?? []).map((p) => (
+                <LinhaPlano
+                  key={p.id}
+                  plano={p}
+                  podeEditar={podeEditar}
+                  onMudou={() => queryClient.invalidateQueries({ queryKey: ["loja-checkout-planos"] })}
+                />
+              ))}
+            </div>
+            <ProdutosLoja podeEditar={podeEditar} />
+          </>
+        )}
       </main>
     </div>
   );

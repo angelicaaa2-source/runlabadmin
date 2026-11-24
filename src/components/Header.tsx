@@ -71,12 +71,12 @@ export const Header = () => {
           )}
           {hasPermission("financeiro.view") && (
             <NavLink 
-              to="/loja-checkout" 
+              to="/checkout" 
               className="text-muted-foreground transition-colors"
               activeClassName="text-primary font-medium border-b-2 border-primary pb-1 hover:text-primary"
             >
               <span className="relative">
-                Loja do checkout
+                Checkout
                 {vendasNovas > 0 && (
                   <>
                     <span
