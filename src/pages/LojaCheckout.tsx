@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/lib/supabase";
 import { usePermissions } from "@/hooks/usePermissions";
 import { ProdutosLoja } from "@/components/loja/ProdutosLoja";
+import { VendasAEnviar } from "@/components/loja/VendasAEnviar";
 
 /**
  * Loja do checkout (começo da fase 3 do novo checkout, 23/11/2026): foto de
@@ -212,6 +213,8 @@ const LojaCheckout = () => {
           ))}
         </div>
         <ProdutosLoja podeEditar={podeEditar} />
+
+        <VendasAEnviar />
       </main>
     </div>
   );
