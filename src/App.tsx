@@ -9,7 +9,6 @@ import ParceiroDetalhes from "./pages/ParceiroDetalhes";
 import Financeiro from "./pages/Financeiro";
 import Cupons from "./pages/Cupons";
 import LojaCheckout from "./pages/LojaCheckout";
-import WhatsappAceites from "./pages/WhatsappAceites";
 import Corredores from "./pages/Corredores";
 import CorredorDetalhes from "./pages/CorredorDetalhes";
 import GestaoCompeticoes from "./pages/GestaoCompeticoes";
@@ -45,7 +44,6 @@ const App = () => (
             <Route path="/financeiro" element={<Financeiro />} />
             <Route path="/cupons" element={<Cupons />} />
             <Route path="/loja-checkout" element={<LojaCheckout />} />
-            <Route path="/whatsapp-aceites" element={<WhatsappAceites />} />
             <Route path="/corredores" element={<Corredores />} />
             <Route path="/corredores/:id" element={<CorredorDetalhes />} />
             <Route path="/gestao-competicoes" element={<GestaoCompeticoes />} />

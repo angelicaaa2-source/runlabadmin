@@ -2,6 +2,7 @@ import type { CorredorFilters, CorredorRow } from "@/hooks/useCorredores";
 import { fetchCorredoresForExport } from "@/hooks/useCorredores";
 
 const CSV_HEADERS = [
+  "Aceite WhatsApp",
   "Nome",
   "E-mail",
   "Telefone",
@@ -21,6 +22,7 @@ function escapeCsvCell(value: string): string {
 
 function rowToCsvLine(row: CorredorRow): string {
   return [
+    row.aceiteWhatsapp ? "Sim" : "Não",
     escapeCsvCell(row.nome),
     escapeCsvCell(row.email),
     escapeCsvCell(row.telefone),

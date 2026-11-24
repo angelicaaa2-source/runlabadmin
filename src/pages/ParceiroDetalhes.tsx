@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Header } from "@/components/Header";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import { useParams, Link } from "react-router-dom";
+import { useParams, Link, useLocation } from "react-router-dom";
 import { ChevronRight, X, ChevronLeft, Loader2, Pencil, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { CorredorProfileDialog } from "@/components/CorredorProfileDialog";
@@ -15,6 +15,8 @@ import { supabase } from "@/lib/supabase";
 
 const ParceiroDetalhes = () => {
   const { id } = useParams();
+  // Veio de Cupons (nome clicável): a migalha volta para lá.
+  const origem = useLocation().state as { voltarPara?: string; voltarNome?: string } | null;
   const { data: parceiro, loading, error, refetch } = useParceiroDetails(id);
   const [isProfileDialogOpen, setIsProfileDialogOpen] = useState(false);
   const [isStatusDialogOpen, setIsStatusDialogOpen] = useState(false);
@@ -92,8 +94,8 @@ const ParceiroDetalhes = () => {
 
         {/* Breadcrumb */}
         <div className="flex items-center gap-2 text-sm text-muted-foreground mb-6">
-          <Link to="/parceiros" className="hover:text-foreground">
-            Parceiros
+          <Link to={origem?.voltarPara ?? "/parceiros"} className="hover:text-foreground">
+            {origem?.voltarNome ?? "Parceiros"}
           </Link>
           <ChevronRight className="w-4 h-4" />
           <span className="text-foreground">{parceiro.name}</span>

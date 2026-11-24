@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { Link, useSearchParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Pencil, Plus, Search, Loader2 } from "lucide-react";
@@ -82,6 +83,19 @@ function parceriaValendo(r: { status: string; valid_from: string | null; valid_u
   if (r.valid_from && new Date(r.valid_from).getTime() > agora) return false;
   if (r.valid_until && new Date(r.valid_until).getTime() < agora) return false;
   return true;
+}
+
+/** Nome do parceiro que abre a tela dele (dados, comissões, repasses), com volta para Cupons. */
+function LinkParceiro({ id, nome }: { id: string; nome: string }) {
+  return (
+    <Link
+      to={`/parceiros/${id}`}
+      state={{ voltarPara: "/cupons?aba=parceiros", voltarNome: "Cupons" }}
+      className="underline decoration-muted-foreground/50 underline-offset-4 hover:text-primary hover:decoration-primary"
+    >
+      {nome}
+    </Link>
+  );
 }
 
 /** Parceiros (solicitações aprovadas, inativadas ou vencidas) com código e comissões. */
@@ -236,7 +250,9 @@ function CodigosParceiros({ lista, carregando, erro }: { lista: CodigoParceiro[]
             )}
             {lista.map((p) => (
               <TableRow key={p.id} className="bg-table-row hover:bg-table-row-hover">
-                <TableCell className="text-foreground">{p.nome}</TableCell>
+                <TableCell className="text-foreground">
+                  <LinkParceiro id={p.id} nome={p.nome} />
+                </TableCell>
                 <TableCell className="text-foreground font-semibold tracking-wide">{p.codigo ?? "Sem código"}</TableCell>
                 <TableCell className="text-foreground whitespace-nowrap">10%</TableCell>
                 <TableCell className="text-foreground text-center text-base font-semibold">{p.vendas}</TableCell>
@@ -271,7 +287,9 @@ const Cupons = () => {
     const p = codigosParceiros?.find((x) => x.id === id);
     return p ? `${p.nome}${p.codigo ? ` (${p.codigo})` : ""}` : "Parceiro";
   };
-  const [aba, setAba] = useState<Aba>("cupons");
+  const [params, setParams] = useSearchParams();
+  const aba: Aba = params.get("aba") === "parceiros" ? "parceiros" : "cupons";
+  const setAba = (nova: Aba) => setParams(nova === "parceiros" ? { aba: "parceiros" } : {}, { replace: true });
 
   const [filtro, setFiltro] = useState<Filtro>("valendo");
   const [busca, setBusca] = useState("");
@@ -452,7 +470,11 @@ const Cupons = () => {
                       <ValePara cupom={cupom} corridas={corridas} pacotes={pacotes} />
                     </TableCell>
                     <TableCell className="text-foreground text-sm">
-                      {nomeDoDono(cupom.owner_partner_id) ?? <span className="text-muted-foreground">Ninguém</span>}
+                      {cupom.owner_partner_id && nomeDoDono(cupom.owner_partner_id) ? (
+                        <LinkParceiro id={cupom.owner_partner_id} nome={nomeDoDono(cupom.owner_partner_id)!} />
+                      ) : (
+                        <span className="text-muted-foreground">Ninguém</span>
+                      )}
                     </TableCell>
                     <TableCell className="text-foreground whitespace-nowrap">{formataUsoPorCpf(cupom)}</TableCell>
                     <TableCell className="text-foreground whitespace-nowrap text-center text-base font-semibold">

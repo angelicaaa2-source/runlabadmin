@@ -30,6 +30,8 @@ export type CorredorRow = {
   vinculo: string;
   ultimoAcesso: string;
   plano: string;
+  /** Marcou no checkout a caixinha de lembretes, novidades e ofertas pelo WhatsApp (e não cancelou). */
+  aceiteWhatsapp: boolean;
 };
 
 const PAGE_SIZE_DEFAULT = 10;
@@ -53,11 +55,55 @@ function preferredDistanceToLabel(preferred: string | null): string {
   return preferred;
 }
 
+type AceitesWhatsapp = { ids: Set<string>; emails: Set<string>; telefones: Set<string> };
+
+function telefoneSoDigitos(t: string | null | undefined): string {
+  let d = (t ?? "").replace(/\D/g, "");
+  if ((d.length === 12 || d.length === 13) && d.startsWith("55")) d = d.slice(2);
+  return d;
+}
+
+/**
+ * Quem aceitou ofertas pelo WhatsApp (caixinha do checkout, 24/11/2026). Vem da
+ * view whatsapp_marketing_status (situação mais recente de cada telefone). A
+ * compra sem login ainda não tem conta, então o corredor é achado pela conta,
+ * pelo e-mail ou pelo telefone. Se a leitura falhar, a lista abre sem o ✓.
+ */
+async function buscaAceitesWhatsapp(): Promise<AceitesWhatsapp> {
+  const aceites: AceitesWhatsapp = { ids: new Set(), emails: new Set(), telefones: new Set() };
+  for (let de = 0; ; de += SUPABASE_MAX_ROWS) {
+    const { data, error } = await supabase
+      .from("whatsapp_marketing_status")
+      .select("user_id, email, phone")
+      .eq("purpose", "marketing")
+      .eq("granted", true)
+      .range(de, de + SUPABASE_MAX_ROWS - 1);
+    if (error) {
+      console.warn("[corredores] aceites do WhatsApp indisponíveis", error.message);
+      return aceites;
+    }
+    for (const r of data ?? []) {
+      if (r.user_id) aceites.ids.add(r.user_id as string);
+      if (r.email) aceites.emails.add((r.email as string).trim().toLowerCase());
+      if (r.phone) aceites.telefones.add(telefoneSoDigitos(r.phone as string));
+    }
+    if (!data || data.length < SUPABASE_MAX_ROWS) return aceites;
+  }
+}
+
+function aceitouWhatsapp(a: AceitesWhatsapp, id: string, email: string | null, phone: string | null): boolean {
+  if (a.ids.has(id)) return true;
+  if (email && a.emails.has(email.trim().toLowerCase())) return true;
+  const tel = telefoneSoDigitos(phone);
+  return tel.length >= 10 && a.telefones.has(tel);
+}
+
 /** Busca corredores (view v_corredores_admin) com filtros e paginação */
 async function fetchCorredores(
   filters: CorredorFilters,
   page: number,
-  pageSize: number
+  pageSize: number,
+  aceitesPrevios?: AceitesWhatsapp,
 ): Promise<{ data: CorredorRow[]; total: number }> {
   const needCityState = Boolean(filters.cidade?.trim() || filters.estado?.trim());
   const selectFields = needCityState
@@ -142,6 +188,7 @@ async function fetchCorredores(
 
   if (error) throw error;
 
+  const aceites = aceitesPrevios ?? (await buscaAceitesWhatsapp());
   const total = count ?? 0;
   const data: CorredorRow[] = (rows ?? []).map((r: {
     id: string;
@@ -164,6 +211,7 @@ async function fetchCorredores(
       vinculo: r.tipo_user === "Parceiro" ? "Corredor/parceiro" : "Corredor",
       ultimoAcesso: formatLastAccess(r.updated_at),
       plano,
+      aceiteWhatsapp: aceitouWhatsapp(aceites, r.id, r.email, r.phone),
     };
   });
 
@@ -220,8 +268,9 @@ export function useCorredores(
 /** Busca todos os corredores com filtros (para exportação CSV) */
 export async function fetchCorredoresForExport(filters: CorredorFilters): Promise<CorredorRow[]> {
   const rows: CorredorRow[] = [];
+  const aceites = await buscaAceitesWhatsapp();
   for (let page = 1; ; page++) {
-    const result = await fetchCorredores(filters, page, SUPABASE_MAX_ROWS);
+    const result = await fetchCorredores(filters, page, SUPABASE_MAX_ROWS, aceites);
     rows.push(...result.data);
     if (result.data.length < SUPABASE_MAX_ROWS || rows.length >= result.total) break;
   }
