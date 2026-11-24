@@ -371,7 +371,7 @@ export function VendasAEnviar() {
                 <th className="px-3 py-2 font-medium">Pago em</th>
                 <th className="px-3 py-2 font-medium">Cliente</th>
                 <th className="px-3 py-2 font-medium">Peças</th>
-                <th className="px-3 py-2 font-medium">Endereço</th>
+                <th className="px-3 py-2 font-medium">Endereço destinatário</th>
                 <th className="px-3 py-2 font-medium">Frete</th>
                 <th className="px-3 py-2 font-medium">Onde postar</th>
                 <th className="px-3 py-2 font-medium">Etiqueta</th>
