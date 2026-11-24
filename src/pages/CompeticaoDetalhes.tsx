@@ -147,7 +147,7 @@ const DetalhesTab = ({ competition }: { competition: CompetitionDetail }) => {
             <CardContent className="p-6">
               <p className="text-xs text-muted-foreground mb-2">Total de inscrições</p>
               <p className="text-2xl font-semibold text-foreground">
-                {competition.stats.totalRegistrations} inscrição{competition.stats.totalRegistrations !== 1 ? "ões" : ""}
+                {competition.stats.totalRegistrations} {competition.stats.totalRegistrations === 1 ? "inscrição" : "inscrições"}
               </p>
             </CardContent>
           </Card>
