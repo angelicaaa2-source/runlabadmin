@@ -44,7 +44,7 @@ export function KitCorridaCampos({
   return (
     <div className="space-y-4">
     <p className="rounded-lg border border-border/60 bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
-      Camiseta ou medalha nova? Cadastre primeiro no Estoque do Dash. Ela aparece aqui e em Checkout > Loja sozinha,
+      Camiseta ou medalha nova? Cadastre primeiro no Estoque do Dash. Ela aparece aqui e na aba Loja do Checkout sozinha,
       em até 10 minutos.
     </p>
     <div className="grid gap-6 md:grid-cols-2">
