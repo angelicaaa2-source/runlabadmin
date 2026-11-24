@@ -258,11 +258,12 @@ const CorredorDetalhes = () => {
           </div>
         </div>
 
-        {/* Inscrições (com origem e "Nova inscrição") */}
-        <InscricoesCorredor userId={corredor.id} userName={corredor.name} creditBalance={corredor.creditBalance} />
-
+        {/* Ordem pedida por ela: corridas, inscrições, créditos, compras */}
         {/* Histórico de corridas (todas as tentativas, com ranking e "Corrigir") */}
         <HistoricoCorridas userId={corredor.id} userName={corredor.name} />
+
+        {/* Histórico de inscrições (com origem e "Nova inscrição") */}
+        <InscricoesCorredor userId={corredor.id} userName={corredor.name} creditBalance={corredor.creditBalance} />
 
         {/* Histórico de Créditos */}
         <div className="mb-6">
@@ -310,9 +311,9 @@ const CorredorDetalhes = () => {
           </Card>
         </div>
 
-        {/* Compras (todas, pagas ou não, com status) */}
+        {/* Histórico de compras (todas, pagas ou não, com status) */}
         <div>
-          <h2 className="text-xl font-semibold text-foreground mb-4">Compras</h2>
+          <h2 className="text-xl font-semibold text-foreground mb-4">Histórico de compras</h2>
           <Card className="bg-card border-0 rounded-lg overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full">

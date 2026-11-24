@@ -141,7 +141,7 @@ export const InscricoesCorredor = ({ userId, userName, creditBalance }: Inscrico
   return (
     <div className="mb-6">
       <div className="flex items-center justify-between mb-4 gap-4">
-        <h2 className="text-xl font-semibold text-foreground">Inscrições</h2>
+        <h2 className="text-xl font-semibold text-foreground">Histórico de inscrições</h2>
         {canEdit && (
           <Button
             onClick={() => setDialogOpen(true)}
