@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
 import { useRealtimeRefetch } from "./useSupabaseRealtime";
+import { padraoSemAcento } from "@/lib/buscaSemAcento";
 
 export type CorredorFilters = {
   search?: string;
@@ -150,7 +151,12 @@ async function fetchCorredores(
 
   const search = filters.search?.trim();
   if (search) {
-    query = query.or(`full_name.ilike.%${search}%,email.ilike.%${search}%`);
+    // Nome sem depender de acento ("junior" acha "Júnior"); e-mail como antes.
+    // Vírgula e parênteses quebram a sintaxe do .or() do PostgREST.
+    const nome = padraoSemAcento(search);
+    const email = search.replace(/[,()]/g, " ").trim();
+    const partes = [nome ? `full_name.imatch.${nome}` : null, email ? `email.ilike.%${email}%` : null].filter(Boolean);
+    if (partes.length > 0) query = query.or(partes.join(","));
   }
   if (filters.tipoUser) {
     query = query.eq("tipo_user", filters.tipoUser);

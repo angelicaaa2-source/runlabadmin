@@ -1,7 +1,9 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
+import { semAcento } from "@/lib/buscaSemAcento";
 import { useRealtimeRefetch } from "./useSupabaseRealtime";
 import { formatLocalDate, formatLocalDateRange, resolveLocalDate } from "@/lib/localDate";
+import { fetchGenders, rankByGender, type Genero } from "@/lib/genero";
 
 // ─── Types ───────────────────────────────────────────────
 
@@ -51,6 +53,8 @@ export type CompetitionDetail = {
   formatType: string;
   formatObservations: string | null;
   status: string;
+  /** Rascunho com data marcada para aparecer no app (null = sem data). */
+  publishAt: string | null;
   isFree: boolean;
   coverImageUrl: string | null;
   description: string | null;
@@ -71,6 +75,7 @@ export type CompetitionDetail = {
 
 export type RegistrationRow = {
   id: string;
+  userId: string;
   userName: string;
   userAvatar: string | null;
   distanceLabel: string | null;
@@ -82,6 +87,8 @@ export type RegistrationRow = {
   shirtSize: string | null;
   status: string;
   createdAt: string;
+  /** Só em inscrição cancelada pelo admin (admin_registration_cancellations). */
+  cancelamento: { reason: string; createdAt: string; byName: string | null; creditReturned: boolean } | null;
 };
 
 export type RankingRow = {
@@ -97,6 +104,8 @@ export type RankingRow = {
   publicVisibility: "visible" | "hidden";
   hiddenReason: string | null;
   rawTotalTimeSeconds: number | null;
+  /** Gênero do cadastro ("Feminino" | "Masculino" | null). */
+  gender: string | null;
 };
 
 export type RankingSource = "public" | "audit";
@@ -339,6 +348,7 @@ export function useCompetitionDetails(id: string | undefined) {
         formatType: comp.format_type ?? "oficial",
         formatObservations: comp.format_observations ?? null,
         status: comp.status,
+        publishAt: comp.publish_at ?? null,
         isFree: comp.is_free,
         coverImageUrl: comp.cover_image_url,
         description: comp.description,
@@ -414,10 +424,12 @@ export function useCompetitionRegistrations(
   competitionId: string | undefined,
   page: number = 1,
   pageSize: number = 10,
-  filters: InscricoesFilters = {}
+  filters: InscricoesFilters = {},
+  search: string = ""
 ) {
   const [data, setData] = useState<RegistrationRow[]>([]);
   const [total, setTotal] = useState(0);
+  const [cancelledTotal, setCancelledTotal] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
 
@@ -510,6 +522,58 @@ export function useCompetitionRegistrations(
         }
       }
 
+      // Canceladas ficam na lista, com o status "Cancelado" (pedido dela em 24/11/2026). A contagem do topo
+      // separa as canceladas. A exportação continua só com as ativas (alimenta o fechamento no Dash).
+      const { count: canceladas } = await supabase
+        .from("competition_registrations")
+        .select("id", { count: "exact", head: true })
+        .eq("competition_id", competitionId)
+        .eq("status", "cancelled");
+      setCancelledTotal(canceladas ?? 0);
+
+      // Busca por nome ou e-mail (sem acento): a lista de uma competição é pequena, então junta os ids
+      // de todas as inscrições com os filtros, compara os nomes aqui e pagina o resultado.
+      const termo = semAcento(search);
+      let pageIds: string[] | null = null;
+      if (termo) {
+        const todas: { id: string; user_id: string }[] = [];
+        for (let start = 0; ; start += 1000) {
+          let q = supabase
+            .from("competition_registrations")
+            .select("id, user_id")
+            .eq("competition_id", competitionId)
+            .order("created_at", { ascending: false });
+          if (filters.status && filters.status !== "all") q = q.eq("status", filters.status);
+          if (filterUserIds && filterUserIds.length > 0) q = q.in("user_id", filterUserIds);
+          if (distanceIds && distanceIds.length > 0) q = q.in("distance_id", distanceIds);
+          const { data: chunk, error: chunkError } = await q.range(start, start + 999);
+          if (chunkError) throw chunkError;
+          todas.push(...((chunk ?? []) as { id: string; user_id: string }[]));
+          if (!chunk || chunk.length < 1000) break;
+        }
+        const uids = [...new Set(todas.map((r) => r.user_id))];
+        const achados = new Set<string>();
+        for (let i = 0; i < uids.length; i += 100) {
+          const { data: ps, error: psError } = await supabase
+            .from("v_corredores_admin")
+            .select("id, full_name, email")
+            .in("id", uids.slice(i, i + 100));
+          if (psError) throw psError;
+          ((ps ?? []) as { id: string; full_name: string | null; email: string | null }[]).forEach((pr) => {
+            if (semAcento(pr.full_name ?? "").includes(termo) || (pr.email ?? "").toLowerCase().includes(termo)) {
+              achados.add(pr.id);
+            }
+          });
+        }
+        const ids = todas.filter((r) => achados.has(r.user_id)).map((r) => r.id);
+        setTotal(ids.length);
+        pageIds = ids.slice(from, to + 1);
+        if (pageIds.length === 0) {
+          setData([]);
+          return;
+        }
+      }
+
       let query = supabase
         .from("competition_registrations")
         .select("id, user_id, distance_id, lot_id, status, created_at, shirt_size", {
@@ -518,26 +582,28 @@ export function useCompetitionRegistrations(
         .eq("competition_id", competitionId)
         .order("created_at", { ascending: false });
 
-      if (filters.status && filters.status !== "all") {
-        query = query.eq("status", filters.status);
+      if (pageIds) {
+        query = query.in("id", pageIds);
       } else {
-        query = query.neq("status", "cancelled");
-      }
-      if (filterUserIds && filterUserIds.length > 0) {
-        query = query.in("user_id", filterUserIds);
-      }
-      if (distanceIds && distanceIds.length > 0) {
-        query = query.in("distance_id", distanceIds);
+        if (filters.status && filters.status !== "all") {
+          query = query.eq("status", filters.status);
+        }
+        if (filterUserIds && filterUserIds.length > 0) {
+          query = query.in("user_id", filterUserIds);
+        }
+        if (distanceIds && distanceIds.length > 0) {
+          query = query.in("distance_id", distanceIds);
+        }
       }
 
       const {
         data: regs,
         error: regsError,
         count,
-      } = await query.range(from, to);
+      } = pageIds ? await query : await query.range(from, to);
 
       if (regsError) throw regsError;
-      setTotal(count || 0);
+      if (!pageIds) setTotal(count || 0);
 
       if (!regs || regs.length === 0) {
         setData([]);
@@ -601,12 +667,40 @@ export function useCompetitionRegistrations(
         });
       }
 
+      // Quem cancelou, quando e a justificativa (inscrições canceladas pelo admin).
+      const cancMap: Record<string, RegistrationRow["cancelamento"]> = {};
+      const cancIds = regs.filter((r) => r.status === "cancelled").map((r) => r.id);
+      if (cancIds.length > 0) {
+        const { data: cs } = await supabase
+          .from("admin_registration_cancellations")
+          .select("registration_id, reason, created_at, cancelled_by, credit_returned")
+          .in("registration_id", cancIds);
+        const lista = (cs ?? []) as { registration_id: string; reason: string; created_at: string; cancelled_by: string; credit_returned: boolean }[];
+        const quem = [...new Set(lista.map((c) => c.cancelled_by))];
+        const nomes: Record<string, string> = {};
+        if (quem.length > 0) {
+          const { data: ps } = await supabase.from("profiles").select("id, full_name").in("id", quem);
+          ((ps ?? []) as { id: string; full_name: string | null }[]).forEach((pr) => {
+            nomes[pr.id] = pr.full_name ?? "";
+          });
+        }
+        lista.forEach((c) => {
+          cancMap[c.registration_id] = {
+            reason: c.reason,
+            createdAt: c.created_at,
+            byName: nomes[c.cancelled_by] || null,
+            creditReturned: c.credit_returned,
+          };
+        });
+      }
+
       const rows: RegistrationRow[] = regs.map((r) => {
         const profile = profileMap[r.user_id];
         const distance = r.distance_id ? distanceMap[r.distance_id] : null;
         const lot = r.lot_id ? lotMap[r.lot_id] : null;
         return {
           id: r.id,
+          userId: r.user_id,
           userName: profile?.full_name || "Usuário desconhecido",
           userAvatar: profile?.avatar_url || null,
           distanceLabel: distance?.label || null,
@@ -618,6 +712,7 @@ export function useCompetitionRegistrations(
           shirtSize: r.shirt_size ?? null,
           status: r.status,
           createdAt: r.created_at,
+          cancelamento: cancMap[r.id] ?? null,
         };
       });
 
@@ -630,7 +725,7 @@ export function useCompetitionRegistrations(
     } finally {
       setLoading(false);
     }
-  }, [competitionId, page, pageSize, filters]);
+  }, [competitionId, page, pageSize, filters, search]);
 
   useEffect(() => {
     fetchRegistrations();
@@ -638,7 +733,7 @@ export function useCompetitionRegistrations(
 
   useRealtimeRefetch(["competition_registrations"], fetchRegistrations);
 
-  return { data, total, loading, error, refetch: fetchRegistrations };
+  return { data, total, cancelledTotal, loading, error, refetch: fetchRegistrations };
 }
 
 // ─── Hook: Competition Ranking (paginated) ───────────────
@@ -648,7 +743,8 @@ export function useCompetitionRanking(
   page: number = 1,
   pageSize: number = 10,
   source: RankingSource = "public",
-  search: string = ""
+  search: string = "",
+  gender: Genero = ""
 ) {
   const [data, setData] = useState<RankingRow[]>([]);
   const [total, setTotal] = useState(0);
@@ -695,6 +791,58 @@ export function useCompetitionRanking(
         source === "public"
           ? "run_id, user_id, distance_meters, avg_pace_seconds_per_km, total_time_seconds, rank, user_name, user_avatar_url, state, current_distance_meters"
           : "run_id, user_id, distance_meters, avg_pace_seconds_per_km, total_time_seconds, rank, user_name, user_avatar_url, state, current_distance_meters, public_visibility, hidden_reason, raw_total_time_seconds";
+      const tooSlow = (e: { code?: string; message: string }) =>
+        new Error(
+          e.code === "57014"
+            ? "O ranking demorou demais para carregar (tempo limite do banco). Tente novamente em instantes."
+            : `Erro ao carregar ranking: ${e.message}`
+        );
+
+      // Filtro de gênero (só no ranking público): busca o ranking inteiro, deixa só o gênero
+      // e refaz a posição dentro do gênero; a paginação passa a ser aqui.
+      if (source === "public" && gender) {
+        type Linha = Record<string, unknown> & { user_id: string; distance_meters: number; rank: number };
+        const all: Linha[] = [];
+        for (let start = 0; ; start += 1000) {
+          const { data: chunk, error: chunkError } = await supabase
+            .from(table)
+            .select(selectColumns)
+            .eq("competition_id", competitionId)
+            .order("distance_meters", { ascending: true })
+            .order("rank", { ascending: true })
+            .order("user_id", { ascending: true })
+            .range(start, start + 999);
+          if (chunkError) throw tooSlow(chunkError);
+          all.push(...((chunk ?? []) as unknown as Linha[]));
+          if (!chunk || chunk.length < 1000) break;
+        }
+        const genders = await fetchGenders(all.map((r) => r.user_id));
+        let ranked = rankByGender(all, genders, gender);
+        if (userIds) {
+          const wanted = new Set(userIds);
+          ranked = ranked.filter((r) => wanted.has(r.user_id));
+        }
+        setTotal(ranked.length);
+        setData(
+          ranked.slice(from, to + 1).map((r) => ({
+            position: r.genderRank,
+            userId: r.user_id,
+            userName: (r.user_name as string) || "Usuário desconhecido",
+            userAvatar: (r.user_avatar_url as string) || null,
+            paceSecondsPerKm: r.avg_pace_seconds_per_km as number | null,
+            distanceMeters: r.distance_meters,
+            totalTimeSeconds: r.total_time_seconds as number,
+            state: r.state as string,
+            currentDistanceMeters: (r.current_distance_meters as number | null) ?? null,
+            publicVisibility: "visible",
+            hiddenReason: null,
+            rawTotalTimeSeconds: null,
+            gender: genders[r.user_id] ?? null,
+          }))
+        );
+        return;
+      }
+
       let query = supabase
         .from(table)
         .select(selectColumns, { count: "exact" })
@@ -709,13 +857,7 @@ export function useCompetitionRanking(
         .order("rank", { ascending: true })
         .range(from, to);
 
-      if (runsError) {
-        throw new Error(
-          runsError.code === "57014"
-            ? "O ranking demorou demais para carregar (tempo limite do banco). Tente novamente em instantes."
-            : `Erro ao carregar ranking: ${runsError.message}`
-        );
-      }
+      if (runsError) throw tooSlow(runsError);
       setTotal(count || 0);
 
       if (!runs || runs.length === 0) {
@@ -723,6 +865,8 @@ export function useCompetitionRanking(
         return;
       }
 
+      const pageUserIds = (runs as unknown as { user_id: string }[]).map((r) => r.user_id);
+      const pageGenders = await fetchGenders(pageUserIds);
       const rows: RankingRow[] = runs.map((r) => ({
         position: r.rank,
         userId: r.user_id,
@@ -736,7 +880,11 @@ export function useCompetitionRanking(
         publicVisibility: r.public_visibility ?? "visible",
         hiddenReason: r.hidden_reason ?? null,
         rawTotalTimeSeconds: r.raw_total_time_seconds ?? null,
+        gender: null,
       }));
+      rows.forEach((row) => {
+        row.gender = pageGenders[row.userId] ?? null;
+      });
 
       setData(rows);
     } catch (e) {
@@ -747,7 +895,7 @@ export function useCompetitionRanking(
     } finally {
       setLoading(false);
     }
-  }, [competitionId, page, pageSize, source, search]);
+  }, [competitionId, page, pageSize, source, search, gender]);
 
   useEffect(() => {
     fetchRanking();
@@ -876,30 +1024,205 @@ export async function exportRegistrationsCsv(competitionId: string) {
 }
 
 /** Exports ranking (best run per registered runner with at least one attempt) as CSV */
-export async function exportRankingCsv(competitionId: string) {
-  const { data: runs, error: runsError } = await supabase
-    .from("v_competition_leaderboard")
-    .select(
-      "user_id, distance_meters, avg_pace_seconds_per_km, total_time_seconds, rank, user_name"
-    )
-    .eq("competition_id", competitionId)
-    .order("distance_meters", { ascending: true })
-    .order("rank", { ascending: true });
-
-  if (runsError) throw runsError;
-  if (!runs || runs.length === 0) {
+export async function exportRankingCsv(competitionId: string, gender: Genero = "") {
+  type Linha = {
+    user_id: string;
+    distance_meters: number;
+    avg_pace_seconds_per_km: number | null;
+    total_time_seconds: number | null;
+    rank: number;
+    user_name: string | null;
+  };
+  const runs: Linha[] = [];
+  for (let start = 0; ; start += 1000) {
+    const { data: chunk, error: runsError } = await supabase
+      .from("v_competition_leaderboard")
+      .select("user_id, distance_meters, avg_pace_seconds_per_km, total_time_seconds, rank, user_name")
+      .eq("competition_id", competitionId)
+      .order("distance_meters", { ascending: true })
+      .order("rank", { ascending: true })
+      .order("user_id", { ascending: true })
+      .range(start, start + 999);
+    if (runsError) throw runsError;
+    runs.push(...((chunk ?? []) as Linha[]));
+    if (!chunk || chunk.length < 1000) break;
+  }
+  if (runs.length === 0) {
     throw new Error("Nenhum resultado no ranking para exportar");
   }
 
-  const headers = ["Distância", "Posição", "Corredor", "Pace", "Tempo"];
-  const rows = runs.map((r) => [
+  const genders = await fetchGenders(runs.map((r) => r.user_id));
+  const lista = gender
+    ? rankByGender(runs, genders, gender).map((r) => ({ ...r, posicao: r.genderRank }))
+    : runs.map((r) => ({ ...r, posicao: r.rank }));
+  if (lista.length === 0) {
+    throw new Error(`Nenhum resultado no ranking ${gender.toLowerCase()} para exportar`);
+  }
+
+  const headers = ["Distância", "Posição", "Corredor", "Gênero", "Pace", "Tempo"];
+  const rows = lista.map((r) => [
     formatDistanceKm(r.distance_meters),
-    `${r.rank}º`,
+    `${r.posicao}º`,
     r.user_name || "Desconhecido",
+    genders[r.user_id] ?? "",
     formatPace(r.avg_pace_seconds_per_km),
     formatTime(r.total_time_seconds),
   ]);
 
   const csv = generateCsv(headers, rows);
-  downloadCsv(csv, `ranking-${competitionId}.csv`);
+  downloadCsv(csv, gender ? `ranking-${gender.toLowerCase()}-${competitionId}.csv` : `ranking-${competitionId}.csv`);
+}
+
+/**
+ * Exports the attempts audit as CSV (button "Exportar" on the
+ * "Auditoria de tentativas" tab).
+ *
+ * Who appears in the public ranking comes first, with the same position the
+ * app shows (per distance). Then everyone who tried and does not appear in the
+ * app, with the reason. Read-only: it only reads the two ranking views and the
+ * admin e-mail view; nothing is written.
+ */
+export async function exportAttemptsCsv(competitionId: string) {
+  const PAGE = 1000; // api.max_rows
+
+  type PublicRow = {
+    user_id: string;
+    distance_meters: number;
+    avg_pace_seconds_per_km: number | null;
+    total_time_seconds: number | null;
+    rank: number;
+    user_name: string | null;
+    state: string;
+  };
+  type AuditRow = {
+    user_id: string;
+    distance_meters: number;
+    avg_pace_seconds_per_km: number | null;
+    total_time_seconds: number | null;
+    user_name: string | null;
+    state: string;
+    public_visibility: string | null;
+    hidden_reason: string | null;
+  };
+
+  async function fetchAll<T>(table: string, columns: string): Promise<T[]> {
+    const all: T[] = [];
+    for (let from = 0; ; from += PAGE) {
+      const { data, error } = await supabase
+        .from(table)
+        .select(columns)
+        .eq("competition_id", competitionId)
+        .order("distance_meters", { ascending: true })
+        .order("rank", { ascending: true })
+        .order("user_id", { ascending: true })
+        .range(from, from + PAGE - 1);
+      if (error) {
+        throw new Error(
+          error.code === "57014"
+            ? "A exportação demorou demais (tempo limite do banco). Tente novamente em instantes."
+            : `Erro ao exportar tentativas: ${error.message}`
+        );
+      }
+      all.push(...((data ?? []) as T[]));
+      if (!data || data.length < PAGE) break;
+    }
+    return all;
+  }
+
+  const publicRows = await fetchAll<PublicRow>(
+    "v_competition_leaderboard",
+    "user_id, distance_meters, avg_pace_seconds_per_km, total_time_seconds, rank, user_name, state"
+  );
+  const auditRows = await fetchAll<AuditRow>(
+    "v_admin_competition_attempt_ranking",
+    "user_id, distance_meters, avg_pace_seconds_per_km, total_time_seconds, rank, user_name, state, public_visibility, hidden_reason"
+  );
+
+  if (publicRows.length === 0 && auditRows.length === 0) {
+    throw new Error("Nenhuma tentativa para exportar");
+  }
+
+  // E-mails (as views do ranking não têm e-mail; v_corredores_admin tem).
+  const userIds = [
+    ...new Set([...publicRows, ...auditRows].map((r) => r.user_id)),
+  ];
+  const emailMap: Record<string, string> = {};
+  for (let i = 0; i < userIds.length; i += 100) {
+    const chunk = userIds.slice(i, i + 100);
+    const { data: people, error: peopleError } = await supabase
+      .from("v_corredores_admin")
+      .select("id, email")
+      .in("id", chunk);
+    if (peopleError) {
+      throw new Error(`Erro ao buscar e-mails: ${peopleError.message}`);
+    }
+    (people ?? []).forEach((p: { id: string; email: string | null }) => {
+      emailMap[p.id] = p.email ?? "";
+    });
+  }
+
+  const inPublic = new Set(publicRows.map((r) => r.user_id));
+
+  const visible = publicRows.map((r) => ({
+    distance: r.distance_meters,
+    order: 0,
+    rank: r.rank,
+    cells: [
+      formatDistanceKm(r.distance_meters),
+      `${r.rank}º`,
+      r.user_name || "Desconhecido",
+      emailMap[r.user_id] ?? "",
+      formatPace(r.avg_pace_seconds_per_km),
+      formatTime(r.total_time_seconds),
+      mapRunState(r.state),
+      "Sim",
+      "",
+    ],
+  }));
+
+  const notVisible = auditRows
+    .filter((r) => !inPublic.has(r.user_id))
+    .map((r) => ({
+      distance: r.distance_meters,
+      order: 1,
+      rank: 0,
+      cells: [
+        formatDistanceKm(r.distance_meters),
+        "",
+        r.user_name || "Desconhecido",
+        emailMap[r.user_id] ?? "",
+        formatPace(r.avg_pace_seconds_per_km),
+        formatTime(r.total_time_seconds),
+        mapRunState(r.state),
+        "Não",
+        r.hidden_reason
+          ? mapHiddenReason(r.hidden_reason)
+          : "Fora das regras do ranking do app",
+      ],
+    }));
+
+  const rows = [...visible, ...notVisible]
+    .sort(
+      (a, b) =>
+        a.distance - b.distance ||
+        a.order - b.order ||
+        a.rank - b.rank ||
+        a.cells[2].localeCompare(b.cells[2], "pt-BR")
+    )
+    .map((r) => r.cells);
+
+  const headers = [
+    "Distância",
+    "Posição",
+    "Corredor",
+    "E-mail",
+    "Pace",
+    "Tempo",
+    "Situação",
+    "Visível no app",
+    "Motivo",
+  ];
+
+  const csv = generateCsv(headers, rows);
+  downloadCsv(csv, `tentativas-${competitionId}.csv`);
 }

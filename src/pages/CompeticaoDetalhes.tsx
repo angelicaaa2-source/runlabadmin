@@ -2,7 +2,12 @@ import { useEffect, useState } from "react";
 import { Header } from "@/components/Header";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { usePermissions } from "@/hooks/usePermissions";
-import { ChevronLeft, ChevronRight, Pencil, Download, Filter, Loader2, Search } from "lucide-react";
+import { CancelarInscricaoDialog } from "@/components/CancelarInscricaoDialog";
+import { CorredorPerfilSheet } from "@/components/CorredorPerfilSheet";
+import { ChevronLeft, ChevronRight, Pencil, Download, Filter, Loader2, Search, CalendarClock } from "lucide-react";
+import { PublicacaoAppDialog } from "@/components/PublicacaoAppDialog";
+import { formatPublishAt } from "@/lib/publicacao";
+import { GENEROS, type Genero } from "@/lib/genero";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
@@ -28,6 +33,7 @@ import {
   mapHiddenReason,
   exportRegistrationsCsv,
   exportRankingCsv,
+  exportAttemptsCsv,
 } from "@/hooks/useCompetitionDetails";
 import type { CompetitionDetail, InscricoesFilters } from "@/hooks/useCompetitionDetails";
 import { toast } from "sonner";
@@ -335,107 +341,179 @@ const InscricoesTab = ({
   onPageChange: (page: number) => void;
 }) => {
   const pageSize = 10;
-  const { data, total, loading, error, refetch } = useCompetitionRegistrations(
+  const { hasPermission } = usePermissions();
+  const canEdit = hasPermission("competicoes.edit");
+  const [cancelar, setCancelar] = useState<{ id: string; nome: string } | null>(null);
+  const [perfil, setPerfil] = useState<{ id: string; nome: string } | null>(null);
+  const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(search), 300);
+    return () => clearTimeout(t);
+  }, [search]);
+
+  useEffect(() => {
+    onPageChange(1);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [debouncedSearch]);
+
+  const { data, total, cancelledTotal, loading, error, refetch } = useCompetitionRegistrations(
     competitionId,
     page,
     pageSize,
-    filters
+    filters,
+    debouncedSearch
   );
 
   const hasActiveFilters = Object.keys(filters).length > 0;
+  const buscando = debouncedSearch.trim().length > 0;
 
-  if (loading && data.length === 0) return <LoadingState />;
+  if (loading && data.length === 0 && !buscando && !search) return <LoadingState />;
   if (error) return <ErrorState message={error.message} onRetry={refetch} />;
-  if (data.length === 0) {
-    return (
-      <EmptyState
-        message={
-          hasActiveFilters
-            ? "Nenhuma inscrição encontrada com os filtros aplicados."
-            : "Nenhuma inscrição encontrada."
-        }
-      />
-    );
-  }
+
+  const contagem = hasActiveFilters || buscando
+    ? `${total} resultado${total !== 1 ? "s" : ""}${hasActiveFilters ? " (filtrado)" : ""}`
+    : `${total - cancelledTotal} inscrito${total - cancelledTotal !== 1 ? "s" : ""}` +
+      (cancelledTotal > 0 ? ` · ${cancelledTotal} cancelada${cancelledTotal !== 1 ? "s" : ""}` : "");
 
   return (
     <>
       <div className="rounded-lg overflow-hidden border border-border mb-6">
-        <div className="px-6 py-4 bg-[#262626] flex items-center justify-between">
+        <div className="px-6 py-4 bg-[#262626] flex items-center justify-between gap-4">
           <h2 className="text-xl font-semibold text-foreground">Inscritos</h2>
-          <p className="text-sm text-muted-foreground">
-            {total} inscrito{total !== 1 ? "s" : ""}
-            {hasActiveFilters && " (filtrado)"}
-          </p>
+          <div className="flex items-center gap-4">
+            <p data-contagem-inscritos className="text-sm text-muted-foreground flex items-center gap-2 whitespace-nowrap">
+              {loading && <Loader2 className="h-3 w-3 animate-spin" />}
+              {contagem}
+            </p>
+            <div className="relative w-72">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                data-busca-inscritos
+                placeholder="Buscar por nome ou e-mail"
+                className="pl-10 bg-input border-border text-foreground"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+            </div>
+          </div>
         </div>
-        <Table>
-          <TableHeader>
-            <TableRow className="bg-table-header hover:bg-table-header">
-              <TableHead className="font-medium" style={{ color: "#E0E0E0" }}>
-                Nome
-              </TableHead>
-              <TableHead className="font-medium" style={{ color: "#E0E0E0" }}>
-                Distância
-              </TableHead>
-              <TableHead className="font-medium" style={{ color: "#E0E0E0" }}>
-                Tentativas
-              </TableHead>
-              <TableHead className="font-medium" style={{ color: "#E0E0E0" }}>
-                Lote
-              </TableHead>
-              <TableHead className="font-medium" style={{ color: "#E0E0E0" }}>
-                Valor
-              </TableHead>
-              <TableHead className="font-medium" style={{ color: "#E0E0E0" }}>
-                Tamanho
-              </TableHead>
-              <TableHead className="font-medium" style={{ color: "#E0E0E0" }}>
-                Status
-              </TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {data.map((reg) => (
-              <TableRow
-                key={reg.id}
-                className="border-border hover:bg-muted/50 bg-[#262626]"
-              >
-                <TableCell className="font-medium text-foreground">
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-full bg-muted overflow-hidden flex-shrink-0">
-                      {reg.userAvatar ? (
-                        <img
-                          src={reg.userAvatar}
-                          alt={reg.userName}
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center text-xs text-muted-foreground">
-                          {reg.userName.charAt(0).toUpperCase()}
-                        </div>
-                      )}
-                    </div>
-                    {reg.userName}
-                  </div>
-                </TableCell>
-                <TableCell className="text-foreground">
-                  {reg.distanceLabel || "-"}
-                </TableCell>
-                <TableCell className="text-foreground text-center">
-                  {reg.attempts}
-                </TableCell>
-                <TableCell className="text-foreground">{reg.lotName || "-"}</TableCell>
-                <TableCell className="text-foreground">
-                  {formatPrice(reg.priceCents)}
-                </TableCell>
-                <TableCell className="text-foreground">
-                  {reg.shirtSize ?? "-"}
-                </TableCell>
-                <TableCell>{getRegistrationStatusBadge(reg.status)}</TableCell>
+        {data.length === 0 ? (
+          <div className="bg-[#262626] px-6 py-10 text-center text-sm text-muted-foreground">
+            {loading
+              ? "Carregando..."
+              : buscando
+                ? `Nenhum inscrito encontrado para "${debouncedSearch.trim()}".`
+                : hasActiveFilters
+                  ? "Nenhuma inscrição encontrada com os filtros aplicados."
+                  : "Nenhuma inscrição encontrada."}
+          </div>
+        ) : (
+          <Table>
+            <TableHeader>
+              <TableRow className="bg-table-header hover:bg-table-header">
+                <TableHead className="font-medium" style={{ color: "#E0E0E0" }}>
+                  Nome
+                </TableHead>
+                <TableHead className="font-medium" style={{ color: "#E0E0E0" }}>
+                  Distância
+                </TableHead>
+                <TableHead className="font-medium" style={{ color: "#E0E0E0" }}>
+                  Tentativas
+                </TableHead>
+                <TableHead className="font-medium" style={{ color: "#E0E0E0" }}>
+                  Lote
+                </TableHead>
+                <TableHead className="font-medium" style={{ color: "#E0E0E0" }}>
+                  Valor
+                </TableHead>
+                <TableHead className="font-medium" style={{ color: "#E0E0E0" }}>
+                  Tamanho
+                </TableHead>
+                <TableHead className="font-medium" style={{ color: "#E0E0E0" }}>
+                  Status
+                </TableHead>
+                {canEdit && <TableHead className="w-[110px]" />}
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+            </TableHeader>
+            <TableBody>
+              {data.map((reg) => (
+                <TableRow
+                  key={reg.id}
+                  data-inscrito-row
+                  className={`border-border hover:bg-muted/50 bg-[#262626] ${reg.status === "cancelled" ? "opacity-70" : ""}`}
+                >
+                  <TableCell className="font-medium text-foreground">
+                    <button
+                      type="button"
+                      data-abrir-corredor
+                      onClick={() => setPerfil({ id: reg.userId, nome: reg.userName })}
+                      className="flex items-center gap-3 text-left hover:text-primary transition-colors"
+                      title="Ver perfil, contato e histórico"
+                    >
+                      <div className="w-8 h-8 rounded-full bg-muted overflow-hidden flex-shrink-0">
+                        {reg.userAvatar ? (
+                          <img
+                            src={reg.userAvatar}
+                            alt={reg.userName}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-xs text-muted-foreground">
+                            {reg.userName.charAt(0).toUpperCase()}
+                          </div>
+                        )}
+                      </div>
+                      <span className="underline-offset-4 hover:underline">{reg.userName}</span>
+                    </button>
+                  </TableCell>
+                  <TableCell className="text-foreground">
+                    {reg.distanceLabel || "-"}
+                  </TableCell>
+                  <TableCell className="text-foreground text-center">
+                    {reg.attempts}
+                  </TableCell>
+                  <TableCell className="text-foreground">{reg.lotName || "-"}</TableCell>
+                  <TableCell className="text-foreground">
+                    {formatPrice(reg.priceCents)}
+                  </TableCell>
+                  <TableCell className="text-foreground">
+                    {reg.shirtSize ?? "-"}
+                  </TableCell>
+                  <TableCell>
+                    {getRegistrationStatusBadge(reg.status)}
+                    {reg.cancelamento && (
+                      <div data-info-cancelamento className="mt-1 max-w-[240px] space-y-0.5 text-xs text-muted-foreground">
+                        <div>
+                          Em {new Date(reg.cancelamento.createdAt).toLocaleDateString("pt-BR")}
+                          {reg.cancelamento.byName ? ` por ${reg.cancelamento.byName}` : ""}
+                        </div>
+                        <div>"{reg.cancelamento.reason}"</div>
+                        {reg.cancelamento.creditReturned && <div>Crédito devolvido</div>}
+                      </div>
+                    )}
+                  </TableCell>
+                  {canEdit && (
+                    <TableCell className="text-right">
+                      {reg.status !== "cancelled" && (
+                        <Button
+                          data-cancelar-inscricao-btn
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setCancelar({ id: reg.id, nome: reg.userName })}
+                          className="text-red-400 hover:text-red-300 hover:bg-red-500/10"
+                        >
+                          Cancelar
+                        </Button>
+                      )}
+                    </TableCell>
+                  )}
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )}
       </div>
 
       <Pagination
@@ -444,24 +522,65 @@ const InscricoesTab = ({
         pageSize={pageSize}
         onPageChange={onPageChange}
       />
+
+      <CancelarInscricaoDialog
+        open={cancelar !== null}
+        registrationId={cancelar?.id ?? null}
+        userName={cancelar?.nome ?? ""}
+        onClose={() => setCancelar(null)}
+        onDone={() => {
+          setCancelar(null);
+          refetch();
+        }}
+      />
+
+      <CorredorPerfilSheet
+        userId={perfil?.id ?? null}
+        userName={perfil?.nome}
+        onClose={() => {
+          setPerfil(null);
+          refetch();
+        }}
+      />
     </>
   );
 };
 
 // ─── Tab: Ranking ────────────────────────────────────────
 
-const RankingTab = ({ competitionId }: { competitionId: string }) => {
+const RankingTab = ({
+  competitionId,
+  onSourceChange,
+  onGenderChange,
+}: {
+  competitionId: string;
+  onSourceChange?: (source: "public" | "audit") => void;
+  onGenderChange?: (gender: Genero) => void;
+}) => {
   const [page, setPage] = useState(1);
   const [source, setSource] = useState<"public" | "audit">("public");
+  const [gender, setGender] = useState<Genero>("");
+
+  // Avisa a página qual aba está aberta, para o botão Exportar baixar a certa.
+  useEffect(() => {
+    onSourceChange?.(source);
+  }, [source, onSourceChange]);
+  // O gênero só vale no ranking público.
+  const activeGender: Genero = source === "public" ? gender : "";
+  useEffect(() => {
+    onGenderChange?.(activeGender);
+  }, [activeGender, onGenderChange]);
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [perfil, setPerfil] = useState<{ id: string; nome: string } | null>(null);
   const pageSize = 10;
   const { data, total, loading, error, refetch } = useCompetitionRanking(
     competitionId,
     page,
     pageSize,
     source,
-    debouncedSearch
+    debouncedSearch,
+    activeGender
   );
 
   useEffect(() => {
@@ -499,6 +618,25 @@ const RankingTab = ({ competitionId }: { competitionId: string }) => {
         >
           Auditoria de tentativas
         </Button>
+        {source === "public" && (
+          <div className="flex items-center gap-2 ml-auto" data-filtro-genero>
+            <span className="text-sm text-muted-foreground">Gênero:</span>
+            {GENEROS.map((g) => (
+              <Button
+                key={g.label}
+                type="button"
+                size="sm"
+                variant={gender === g.value ? "default" : "secondary"}
+                onClick={() => {
+                  setGender(g.value);
+                  setPage(1);
+                }}
+              >
+                {g.label}
+              </Button>
+            ))}
+          </div>
+        )}
       </div>
 
       <div className="rounded-lg overflow-hidden border border-border mb-6">
@@ -506,10 +644,13 @@ const RankingTab = ({ competitionId }: { competitionId: string }) => {
           <div>
             <h2 className="text-xl font-semibold text-foreground">
               {source === "public" ? "Ranking público (app)" : "Auditoria de tentativas"}
+              {activeGender ? ` · ${activeGender}` : ""}
             </h2>
             <p className="text-sm text-muted-foreground mt-1">
               {source === "public"
-                ? "Mesma fonte exibida no app, com paces abaixo de 3:00/km ocultos."
+                ? activeGender
+                  ? `Só ${activeGender === "Feminino" ? "mulheres" : "homens"}, com a posição refeita dentro do gênero (pelo gênero do cadastro).`
+                  : "Mesma fonte exibida no app, com paces abaixo de 3:00/km ocultos."
                 : "Inclui todos que tentaram correr e mostra por que podem não aparecer no app."}
             </p>
           </div>
@@ -546,6 +687,9 @@ const RankingTab = ({ competitionId }: { competitionId: string }) => {
                 <TableHead className="font-medium" style={{ color: "#E0E0E0" }}>Pace</TableHead>
                 <TableHead className="font-medium" style={{ color: "#E0E0E0" }}>Tempo</TableHead>
                 <TableHead className="font-medium" style={{ color: "#E0E0E0" }}>Distância</TableHead>
+                {source === "public" && (
+                  <TableHead className="font-medium" style={{ color: "#E0E0E0" }}>Gênero</TableHead>
+                )}
                 {source === "audit" && (
                   <>
                     <TableHead className="font-medium" style={{ color: "#E0E0E0" }}>Status</TableHead>
@@ -562,7 +706,13 @@ const RankingTab = ({ competitionId }: { competitionId: string }) => {
                 >
                   <TableCell className="text-foreground font-medium">{item.position}º</TableCell>
                   <TableCell className="font-medium text-foreground">
-                    <div className="flex items-center gap-3">
+                    <button
+                      type="button"
+                      data-abrir-corredor
+                      onClick={() => setPerfil({ id: item.userId, nome: item.userName })}
+                      className="flex items-center gap-3 text-left hover:text-primary transition-colors"
+                      title="Ver perfil, contato e histórico"
+                    >
                       <div className="w-10 h-10 rounded-full bg-muted overflow-hidden flex-shrink-0">
                         {item.userAvatar ? (
                           <img src={item.userAvatar} alt={item.userName} className="w-full h-full object-cover" />
@@ -572,12 +722,15 @@ const RankingTab = ({ competitionId }: { competitionId: string }) => {
                           </div>
                         )}
                       </div>
-                      {item.userName}
-                    </div>
+                      <span className="underline-offset-4 hover:underline">{item.userName}</span>
+                    </button>
                   </TableCell>
                   <TableCell className="text-foreground">{formatPace(item.paceSecondsPerKm)}</TableCell>
                   <TableCell className="text-foreground">{formatTime(item.totalTimeSeconds)}</TableCell>
                   <TableCell className="text-foreground">{formatDistanceKm(item.distanceMeters)}</TableCell>
+                  {source === "public" && (
+                    <TableCell className="text-foreground">{item.gender ?? <span className="text-muted-foreground">-</span>}</TableCell>
+                  )}
                   {source === "audit" && (
                     <>
                       <TableCell className="text-foreground">{mapRunState(item.state)}</TableCell>
@@ -608,6 +761,7 @@ const RankingTab = ({ competitionId }: { competitionId: string }) => {
         pageSize={pageSize}
         onPageChange={setPage}
       />
+      <CorredorPerfilSheet userId={perfil?.id ?? null} userName={perfil?.nome} onClose={() => setPerfil(null)} />
     </>
   );
 };
@@ -622,6 +776,9 @@ const CompeticaoDetalhesContent = () => {
   const [isExportDialogOpen, setIsExportDialogOpen] = useState(false);
   const [isFilterDialogOpen, setIsFilterDialogOpen] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [rankingSource, setRankingSource] = useState<"public" | "audit">("public");
+  const [publicacaoOpen, setPublicacaoOpen] = useState(false);
+  const [rankingGender, setRankingGender] = useState<Genero>("");
   const [inscricoesFilters, setInscricoesFilters] = useState<InscricoesFilters>({});
   const [inscricoesPage, setInscricoesPage] = useState(1);
 
@@ -634,8 +791,11 @@ const CompeticaoDetalhesContent = () => {
       if (activeTab === "inscricoes") {
         await exportRegistrationsCsv(id);
         toast.success("Inscrições exportadas com sucesso!");
+      } else if (activeTab === "ranking" && rankingSource === "audit") {
+        await exportAttemptsCsv(id);
+        toast.success("Tentativas exportadas com sucesso!");
       } else if (activeTab === "ranking") {
-        await exportRankingCsv(id);
+        await exportRankingCsv(id, rankingGender);
         toast.success("Ranking exportado com sucesso!");
       }
     } catch (e) {
@@ -720,17 +880,46 @@ const CompeticaoDetalhesContent = () => {
               Exportar
             </Button>
           ) : hasPermission("competicoes.edit") ? (
-            <Button
-              className="gap-2 border-0 hover:brightness-90 transition-all"
-              style={{ backgroundColor: "#1A1A1A", color: "#CCF725" }}
-              onClick={() => navigate(`/gestao-competicoes/${id}/editar`)}
-            >
-              <Pencil className="w-4 h-4" />
-              Editar dados
-            </Button>
+            <>
+              <Button
+                data-botao-publicacao
+                className="gap-2 border-0 hover:brightness-90 transition-all"
+                style={{ backgroundColor: "#1A1A1A", color: "#CCF725" }}
+                onClick={() => setPublicacaoOpen(true)}
+              >
+                <CalendarClock className="w-4 h-4" />
+                {competition.status !== "draft"
+                  ? "Publicação no app"
+                  : competition.publishAt
+                    ? `Programada: ${formatPublishAt(competition.publishAt)}`
+                    : "Oculta no app"}
+              </Button>
+              <Button
+                className="gap-2 border-0 hover:brightness-90 transition-all"
+                style={{ backgroundColor: "#1A1A1A", color: "#CCF725" }}
+                onClick={() => navigate(`/gestao-competicoes/${id}/editar`)}
+              >
+                <Pencil className="w-4 h-4" />
+                Editar dados
+              </Button>
+            </>
           ) : null}
         </div>
       </div>
+
+      <PublicacaoAppDialog
+        open={publicacaoOpen}
+        competitionId={competition.id}
+        competitionName={competition.title}
+        isDraft={competition.status === "draft"}
+        publishAt={competition.publishAt}
+        inscritos={competition.stats.totalRegistrations}
+        onClose={() => setPublicacaoOpen(false)}
+        onDone={() => {
+          setPublicacaoOpen(false);
+          refetch();
+        }}
+      />
 
       {/* Breadcrumb - Only visible on Detalhes tab */}
       {activeTab === "detalhes" && (
@@ -756,7 +945,9 @@ const CompeticaoDetalhesContent = () => {
           onPageChange={setInscricoesPage}
         />
       )}
-      {activeTab === "ranking" && <RankingTab competitionId={competition.id} />}
+      {activeTab === "ranking" && (
+        <RankingTab competitionId={competition.id} onSourceChange={setRankingSource} onGenderChange={setRankingGender} />
+      )}
 
       {/* Dialogs */}
       <ExportDialog

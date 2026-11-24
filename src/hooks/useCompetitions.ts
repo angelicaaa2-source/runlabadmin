@@ -17,6 +17,8 @@ export type CompetitionRow = {
   formato: string;
   campeonato: string;
   status: CompetitionStatus;
+  /** Rascunho com data marcada para aparecer no app (null = sem data). */
+  publishAt: string | null;
   regulamento: {
     count: number;
     title: string;
@@ -86,7 +88,7 @@ function periodToDate(periodo: string | undefined): string | null {
 async function fetchCompetitionsWithFilters(filters: CompetitionFilters = {}): Promise<CompetitionRow[]> {
   let query = supabase
     .from("competitions")
-    .select("id, title, subtitle, mode, format_type, status, is_free, starts_on, ends_on, registration_starts_on, registration_ends_on, starts_at, ends_at, registration_starts_at, registration_ends_at, competition_sponsors, created_at, championship_id")
+    .select("id, title, subtitle, mode, format_type, status, is_free, starts_on, ends_on, registration_starts_on, registration_ends_on, starts_at, ends_at, registration_starts_at, registration_ends_at, competition_sponsors, created_at, championship_id, publish_at")
     .order("created_at", { ascending: false });
 
   const dbStatus = statusToDb(filters.status);
@@ -181,6 +183,7 @@ async function fetchCompetitionsWithFilters(filters: CompetitionFilters = {}): P
     formato: formatLabel(c.format_type),
     campeonato: c.championship_id ? (championshipNames[c.championship_id] ?? "-") : "-",
     status: mapStatus(c.status as DbStatus),
+    publishAt: c.status === "draft" ? (c.publish_at ?? null) : null,
     regulamento: documentsByCompetition[c.id]?.length
       ? {
         count: documentsByCompetition[c.id].length,

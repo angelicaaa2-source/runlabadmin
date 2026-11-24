@@ -20,6 +20,28 @@ import { cn } from "@/lib/utils";
 import { useCompetitionDetails } from "@/hooks/useCompetitionDetails";
 import { supabase } from "@/lib/supabase";
 import { calendarFromLocalDate, localDateFromCalendar } from "@/lib/localDate";
+import { PublicacaoAppCampos } from "@/components/PublicacaoAppCampos";
+import { MedalhaCorridaCampos } from "@/components/MedalhaCorridaCampos";
+import {
+  carregarMedalha,
+  erroDoArquivo,
+  medalhaMudou,
+  mensagemMedalha,
+  removerMedalha,
+  salvarMedalha,
+  type EscolhaMedalha,
+  type MedalhaAtual,
+} from "@/lib/medalha";
+import {
+  erroDaEscolha,
+  escolhaInicial,
+  escolhaIso,
+  escolhaMudou,
+  estadoPublicacao,
+  formatPublishAt,
+  mensagemDeErro,
+  type EscolhaPublicacao,
+} from "@/lib/publicacao";
 
 function formatPriceCentsToInput(cents: number | null): string {
   if (cents === null || cents === undefined) return "";
@@ -167,10 +189,60 @@ const EditarCompeticao = () => {
   const [outraDistanciaInput, setOutraDistanciaInput] = useState<string>("");
   const [availableChampionships, setAvailableChampionships] = useState<{ id: string; name: string }[]>([]);
   const [isSaving, setIsSaving] = useState(false);
+  const [publicacao, setPublicacao] = useState<EscolhaPublicacao>({ modo: "now", data: "", hora: "08:00" });
+  const [medalha, setMedalha] = useState<EscolhaMedalha>({ arquivo: null, nome: "", descricao: "" });
+  const [medalhaAtual, setMedalhaAtual] = useState<MedalhaAtual | null>(null);
+  const [medalhaOcupada, setMedalhaOcupada] = useState(false);
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
     defaultValues: defaultFormValues
   });
+
+  // Medalha da corrida já cadastrada (se houver)
+  const recarregarMedalha = async () => {
+    if (!id) return;
+    try {
+      const atual = await carregarMedalha(id);
+      setMedalhaAtual(atual);
+      setMedalha({ arquivo: null, nome: atual?.name ?? "", descricao: atual?.description ?? "" });
+    } catch (e) {
+      console.error("Erro ao carregar a medalha da corrida:", e);
+    }
+  };
+  useEffect(() => {
+    recarregarMedalha();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id]);
+
+  const handleRemoverMedalha = async () => {
+    if (!id) return;
+    setMedalhaOcupada(true);
+    try {
+      await removerMedalha(id);
+      toast.success("Medalha removida do app");
+      await recarregarMedalha();
+    } catch (e) {
+      toast.error("Não foi possível remover a medalha", { description: mensagemMedalha(e) });
+    } finally {
+      setMedalhaOcupada(false);
+    }
+  };
+
+  const handleReativarMedalha = async () => {
+    if (!id || !medalhaAtual) return;
+    setMedalhaOcupada(true);
+    try {
+      const r = await salvarMedalha(id, { arquivo: null, nome: medalhaAtual.name, descricao: medalhaAtual.description ?? "" }, medalhaAtual.name);
+      toast.success("Medalha reativada", {
+        description: r.awarded_now > 0 ? `${r.awarded_now} atleta(s) ganharam agora.` : undefined,
+      });
+      await recarregarMedalha();
+    } catch (e) {
+      toast.error("Não foi possível reativar a medalha", { description: mensagemMedalha(e) });
+    } finally {
+      setMedalhaOcupada(false);
+    }
+  };
 
   // Preencher formulário quando os dados da competição carregarem
   useEffect(() => {
@@ -238,6 +310,7 @@ const EditarCompeticao = () => {
       })),
     );
     setRemovedDocIds([]);
+    setPublicacao(escolhaInicial(competition.status === "draft", competition.publishAt));
   }, [competition, form]);
 
   // Carregar lista de patrocinadores da tabela competition_sponsors
@@ -316,6 +389,23 @@ const EditarCompeticao = () => {
     }
 
     const data = result.data;
+    const isDraft = competition?.status === "draft";
+    const publishAtSalvo = competition?.publishAt ?? null;
+    const mudouPublicacao = competition ? escolhaMudou(publicacao, isDraft, publishAtSalvo) : false;
+    const erroPublicacao = mudouPublicacao ? erroDaEscolha(publicacao) : null;
+    if (erroPublicacao) {
+      toast.error(erroPublicacao);
+      return;
+    }
+    const erroMedalha = erroDoArquivo(medalha.arquivo);
+    if (erroMedalha) {
+      toast.error(`Medalha da corrida: ${erroMedalha}`);
+      return;
+    }
+    if (!medalhaAtual && !medalha.arquivo && (medalha.nome.trim() || medalha.descricao.trim())) {
+      toast.error("Medalha da corrida: escolha a imagem da medalha (ou apague o nome e a descrição).");
+      return;
+    }
     setIsSaving(true);
     try {
       const startsOn = localDateFromCalendar(data.competicaoInicio);
@@ -612,15 +702,67 @@ const EditarCompeticao = () => {
             throw deleteDocsError;
           }
 
-          if (storagePaths.length > 0) {
+          // Corrida duplicada usa o mesmo arquivo do original: só apaga do Storage o arquivo
+          // que nenhuma outra corrida usa mais.
+          const removedUrls = docsToDelete.map((d) => d.fileUrl);
+          const { data: stillUsed } = removedUrls.length > 0
+            ? await supabase.from("competition_documents").select("file_url").in("file_url", removedUrls)
+            : { data: [] };
+          const usedPaths = new Set(
+            ((stillUsed ?? []) as { file_url: string }[])
+              .map((d) => extractStoragePath(d.file_url))
+              .filter((path): path is string => path !== null),
+          );
+          const freePaths = stillUsed === null ? [] : storagePaths.filter((path) => !usedPaths.has(path));
+
+          if (freePaths.length > 0) {
             const { error: removeStorageError } = await supabase.storage
               .from("sistema")
-              .remove(storagePaths);
+              .remove(freePaths);
             if (removeStorageError) {
               console.warn("Documento removido do banco, mas o arquivo antigo permaneceu no Storage:", removeStorageError);
             }
           }
         }
+      }
+
+      // Medalha da corrida: cria ou atualiza; quem já concluiu ganha agora. Falha aqui não desfaz o resto.
+      if (medalhaMudou(medalha, medalhaAtual)) {
+        try {
+          const r = await salvarMedalha(id, medalha, data.nome);
+          if (r.awarded_now > 0) {
+            toast.success(`Medalha da corrida: ${r.awarded_now} atleta(s) que já concluíram ganharam agora.`);
+          }
+        } catch (e) {
+          toast.error("Dados salvos, mas a medalha da corrida não", { description: mensagemMedalha(e) });
+        }
+      }
+
+      // Publicação por último: quem tira do rascunho vê a corrida já com tudo salvo.
+      if (mudouPublicacao) {
+        const iso = escolhaIso(publicacao);
+        const { error: pubError } = await supabase.rpc("admin_set_competition_publication", {
+          p_competition_id: id,
+          p_mode: publicacao.modo,
+          p_publish_at: publicacao.modo === "schedule" ? iso : null,
+        });
+        if (pubError) {
+          toast.error("Dados salvos, mas a publicação no app não mudou", {
+            description: mensagemDeErro(pubError, "Tente pelo botão Publicação no app."),
+          });
+          navigate(`/gestao-competicoes/${id}`);
+          return;
+        }
+        toast.success("Dados salvos com sucesso!", {
+          description:
+            publicacao.modo === "now"
+              ? "Corrida publicada no app."
+              : publicacao.modo === "schedule"
+                ? `Corrida programada para ${formatPublishAt(iso)}.`
+                : "Corrida oculta no app.",
+        });
+        navigate(`/gestao-competicoes/${id}`);
+        return;
       }
 
       toast.success("Dados salvos com sucesso!");
@@ -1542,6 +1684,39 @@ const EditarCompeticao = () => {
                   )}
                 </div>
               </div>
+            </div>
+          </div>
+
+          {/* Medalha da corrida */}
+          <div className="mt-6">
+            <div className="rounded-[20px] border border-border/50 bg-[#2A2A2A] p-8">
+              <h2 className="text-lg font-semibold mb-6">Medalha da corrida (opcional)</h2>
+              <MedalhaCorridaCampos
+                value={medalha}
+                onChange={setMedalha}
+                tituloCorrida={form.watch("nome") ?? ""}
+                atual={medalhaAtual}
+                disabled={isSaving}
+                ocupado={medalhaOcupada}
+                onRemover={handleRemoverMedalha}
+                onReativar={handleReativarMedalha}
+              />
+            </div>
+          </div>
+
+          {/* Publicação no app */}
+          <div className="mt-6">
+            <div className="rounded-[20px] border border-border/50 bg-[#2A2A2A] p-8">
+              <h2 className="text-lg font-semibold mb-2">Publicação no app</h2>
+              <p className="text-sm text-muted-foreground mb-6">Quando a corrida aparece no app e no site de compra.</p>
+              <PublicacaoAppCampos
+                value={publicacao}
+                onChange={setPublicacao}
+                disabled={isSaving}
+                podeEsconder={competition.status === "draft" || competition.stats.totalAthletes === 0}
+                inscritos={competition.stats.totalAthletes}
+                estadoAtual={estadoPublicacao(competition.status === "draft", competition.publishAt)}
+              />
             </div>
           </div>
 
