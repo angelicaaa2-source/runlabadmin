@@ -7,6 +7,8 @@ export type RecebimentoStatus = "pago" | "em_aberto" | "vencido" | "reembolsado"
 export interface RecebimentoRow {
   id: string;
   shortId: string;
+  /** Quem pagou: abre o painel do corredor ao clicar no nome (pedido da Angélica, 24/11/2026). */
+  userId: string | null;
   nome: string;
   /** Créditos, Inscrição na corrida ou RunLab Club (nomes padrão de 23/11/2026). */
   tipoRecebimento: string;
@@ -185,6 +187,7 @@ async function fetchRecebimentos(search?: string): Promise<RecebimentoRow[]> {
       row: {
         id: p.id,
         shortId: p.id.slice(0, 7).replace(/-/g, ""),
+        userId: p.user_id ?? null,
         nome: nameMap[p.user_id] ?? "Usuário",
         tipoRecebimento,
         produto,
