@@ -164,6 +164,23 @@ export const CupomDialog = ({ open, onOpenChange, cupom, corridas, pacotes, camp
   }, [buscaCorrida, corridas]);
 
   const valeInscricao = f.geral || f.corridas;
+  // "Vale em tudo" (pedido da Angélica, 24/11/2026): página geral, todas as corridas, com e sem kit e os pacotes.
+  const todosPacotesIds = pacotes.map((p) => p.id);
+  const valeEmTudo =
+    f.geral &&
+    f.corridas &&
+    f.corridasModo === "todas" &&
+    f.semKit &&
+    f.comKit &&
+    todosPacotesIds.every((id) => f.pacotesEscolhidos.includes(id));
+  const marcaTudo = (ligar: boolean) => {
+    setF((atual) =>
+      ligar
+        ? { ...atual, geral: true, corridas: true, corridasModo: "todas", semKit: true, comKit: true, pacotesEscolhidos: todosPacotesIds }
+        : { ...atual, geral: false, corridas: false, pacotesEscolhidos: [] },
+    );
+    if (error) setError(null);
+  };
   const valor = numero(f.discountValue);
   const ficaGratis =
     f.discountType === "percent" && valor >= 100;
@@ -375,6 +392,17 @@ export const CupomDialog = ({ open, onOpenChange, cupom, corridas, pacotes, camp
           <div className="space-y-3">
             <label className={rotulo}>Onde o cupom vale</label>
             <div className="rounded-md bg-[#1A1A1A] p-4 space-y-4">
+              <div className="space-y-1 border-b border-border/40 pb-4">
+                <label className={`${opcao} font-medium`}>
+                  <Checkbox checked={valeEmTudo} onCheckedChange={(v) => marcaTudo(v === true)} />
+                  Vale em tudo
+                </label>
+                <p className={`${dica} pl-6`}>
+                  Marca de uma vez a página geral, todas as corridas, com e sem kit e o RunLab Club. Desmarcar limpa
+                  tudo para escolher do zero.
+                </p>
+              </div>
+
               <div className="space-y-1">
                 <label className={opcao}>
                   <Checkbox checked={f.geral} onCheckedChange={(v) => set("geral", v === true)} />
