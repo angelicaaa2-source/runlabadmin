@@ -49,8 +49,9 @@ export const CorredoresTable = ({ data, loading, error, refetch }: CorredoresTab
         <Table>
           <TableHeader>
             <TableRow className="bg-table-header hover:bg-table-header">
-              <TableHead className="w-[1%] whitespace-nowrap text-center font-medium" style={{ color: "#E0E0E0" }}>
-                Aceite WhatsApp
+              <TableHead className="w-[1%] h-auto px-2 py-2 text-center font-medium leading-tight" style={{ color: "#E0E0E0" }}>
+                <span className="block">Aceite</span>
+                <span className="block">WhatsApp</span>
               </TableHead>
               <TableHead className="font-medium" style={{ color: "#E0E0E0" }}>Nome</TableHead>
               <TableHead className="font-medium" style={{ color: "#E0E0E0" }}>E-mail</TableHead>
@@ -75,7 +76,7 @@ export const CorredoresTable = ({ data, loading, error, refetch }: CorredoresTab
                   className="border-border hover:bg-muted/50 cursor-pointer bg-[#262626]"
                   onClick={() => navigate(`/corredores/${corredor.id}`)}
                 >
-                  <TableCell className="text-center">
+                  <TableCell className="px-2 text-center">
                     {corredor.aceiteWhatsapp ? (
                       <Check className="mx-auto h-5 w-5 text-primary" aria-label="Aceitou ofertas pelo WhatsApp" />
                     ) : (
