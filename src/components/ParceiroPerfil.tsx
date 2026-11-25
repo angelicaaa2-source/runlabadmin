@@ -5,6 +5,7 @@ import { Link } from "react-router-dom";
 import { ChevronRight, X, ChevronLeft, Loader2, Pencil, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { CorredorProfileDialog } from "@/components/CorredorProfileDialog";
+import { CorredorPerfilSheet } from "@/components/CorredorPerfilSheet";
 import { StatusParceiroDialog } from "@/components/StatusParceiroDialog";
 import { EditarCupomParceiroDialog } from "@/components/EditarCupomParceiroDialog";
 import { ExcluirContaButton } from "@/components/ExcluirContaButton";
@@ -26,6 +27,8 @@ export const ParceiroPerfil = ({ userId, modo = "pagina" }: ParceiroPerfilProps)
   const [isProfileDialogOpen, setIsProfileDialogOpen] = useState(false);
   const [isStatusDialogOpen, setIsStatusDialogOpen] = useState(false);
   const [isCupomDialogOpen, setIsCupomDialogOpen] = useState(false);
+  // Corredor que comprou com o código: painel de perfil e histórico sem sair do parceiro (24/11/2026).
+  const [corredorAberto, setCorredorAberto] = useState<{ id: string; nome: string } | null>(null);
 
   if (loading) {
     return (
@@ -338,7 +341,9 @@ export const ParceiroPerfil = ({ userId, modo = "pagina" }: ParceiroPerfilProps)
                 <thead className="bg-table-header">
                   <tr>
                     <th className="px-6 py-3 text-left text-sm font-medium" style={{ color: '#E0E0E0' }}>Data</th>
-                    <th className="px-6 py-3 text-left text-sm font-medium" style={{ color: '#E0E0E0' }}>Competição</th>
+                    <th className="px-6 py-3 text-left text-sm font-medium" style={{ color: '#E0E0E0' }}>Corredor</th>
+                    <th className="px-6 py-3 text-left text-sm font-medium" style={{ color: '#E0E0E0' }}>Corrida</th>
+                    <th className="px-6 py-3 text-left text-sm font-medium" style={{ color: '#E0E0E0' }}>Produto</th>
                     <th className="px-6 py-3 text-left text-sm font-medium" style={{ color: '#E0E0E0' }}>Valor</th>
                     <th className="px-6 py-3 text-left text-sm font-medium" style={{ color: '#E0E0E0' }}>Status</th>
                   </tr>
@@ -346,7 +351,7 @@ export const ParceiroPerfil = ({ userId, modo = "pagina" }: ParceiroPerfilProps)
                 <tbody>
                   {comissoes.length === 0 ? (
                     <tr>
-                      <td colSpan={4} className="px-6 py-8 text-center text-muted-foreground text-sm">
+                      <td colSpan={6} className="px-6 py-8 text-center text-muted-foreground text-sm">
                         Nenhuma comissão gerada.
                       </td>
                     </tr>
@@ -357,7 +362,23 @@ export const ParceiroPerfil = ({ userId, modo = "pagina" }: ParceiroPerfilProps)
                         className={`border-t border-border ${index % 2 === 0 ? "bg-table-row" : ""}`}
                       >
                         <td className="px-6 py-4 text-sm text-foreground">{c.data}</td>
-                        <td className="px-6 py-4 text-sm text-foreground">{c.competicao}</td>
+                        <td className="px-6 py-4 text-sm text-foreground">
+                          {c.corredorId ? (
+                            <button
+                              type="button"
+                              data-abrir-corredor
+                              onClick={() => setCorredorAberto({ id: c.corredorId!, nome: c.corredorNome })}
+                              className="text-left font-medium underline-offset-2 hover:text-primary hover:underline transition-colors"
+                              title="Ver perfil, créditos e histórico"
+                            >
+                              {c.corredorNome}
+                            </button>
+                          ) : (
+                            c.corredorNome
+                          )}
+                        </td>
+                        <td className="px-6 py-4 text-sm text-foreground">{c.corrida}</td>
+                        <td className="px-6 py-4 text-sm text-muted-foreground">{c.competicao}</td>
                         <td className="px-6 py-4 text-sm text-success font-medium">{c.valor}</td>
                         <td className="px-6 py-4">
                           <Badge variant={c.status === "confirmed" ? "success" : "default"}>
@@ -516,6 +537,12 @@ export const ParceiroPerfil = ({ userId, modo = "pagina" }: ParceiroPerfilProps)
           setIsCupomDialogOpen(false);
           refetch();
         }}
+      />
+
+      <CorredorPerfilSheet
+        userId={corredorAberto?.id ?? null}
+        userName={corredorAberto?.nome}
+        onClose={() => setCorredorAberto(null)}
       />
     </div>
   );
