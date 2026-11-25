@@ -15,6 +15,7 @@ import {
   diaParaIso,
   formataReais,
   isoParaDia,
+  situacaoDaCorrida,
   type CampeonatoOpcao,
   type CorridaOpcao,
   type Cupom,
@@ -469,7 +470,18 @@ export const CupomDialog = ({ open, onOpenChange, cupom, corridas, pacotes, camp
                                 checked={f.corridasEscolhidas.includes(c.id)}
                                 onCheckedChange={() => alterna("corridasEscolhidas", c.id)}
                               />
-                              <span className="flex-1">{c.title}</span>
+                              <span className="flex-1">
+                                {c.title}
+                                {situacaoDaCorrida(c) && (
+                                  <span
+                                    className={`ml-2 rounded px-1.5 py-0.5 text-[11px] ${
+                                      c.status === "draft" ? "bg-[#CCF725]/15 text-[#CCF725]" : "bg-[#333] text-muted-foreground"
+                                    }`}
+                                  >
+                                    {situacaoDaCorrida(c)}
+                                  </span>
+                                )}
+                              </span>
                               {c.starts_at && (
                                 <span className="text-xs text-muted-foreground">
                                   {new Date(c.starts_at).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })}
@@ -480,8 +492,9 @@ export const CupomDialog = ({ open, onOpenChange, cupom, corridas, pacotes, camp
                         </div>
                         <p className={dica}>
                           {f.corridasEscolhidas.length}{" "}
-                          {f.corridasEscolhidas.length === 1 ? "corrida escolhida" : "corridas escolhidas"}. Corrida
-                          nova não entra sozinha: para isso, use "Só as corridas de um campeonato".
+                          {f.corridasEscolhidas.length === 1 ? "corrida escolhida" : "corridas escolhidas"}. Corrida em
+                          rascunho ou programada pode ser escolhida: o cupom passa a valer sozinho quando ela for ao ar.
+                          Corrida criada depois não entra sozinha: para isso, use "Só as corridas de um campeonato".
                         </p>
                       </div>
                     )}

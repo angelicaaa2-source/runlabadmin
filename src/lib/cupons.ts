@@ -49,6 +49,22 @@ export interface CorridaOpcao {
   id: string;
   title: string;
   starts_at: string | null;
+  /** draft = rascunho (oculta no app e no site); com publish_at = programada. */
+  status?: string | null;
+  publish_at?: string | null;
+}
+
+/** Etiqueta da corrida na escolha de corridas do cupom (o cupom passa a valer sozinho quando ela for ao ar). */
+export function situacaoDaCorrida(c: Pick<CorridaOpcao, "status" | "publish_at">): string | null {
+  if (c.status === "draft") {
+    if (!c.publish_at) return "Rascunho (oculta)";
+    const quando = new Date(c.publish_at).toLocaleString("pt-BR", {
+      timeZone: "America/Sao_Paulo", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit",
+    });
+    return `Programada para ${quando.replace(",", " às")}`;
+  }
+  if (c.status === "finished") return "Encerrada";
+  return null;
 }
 
 export interface PacoteOpcao {

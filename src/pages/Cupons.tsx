@@ -148,7 +148,8 @@ function useOpcoes() {
     queryKey: ["cupons-opcoes"],
     queryFn: async (): Promise<{ corridas: CorridaOpcao[]; pacotes: PacoteOpcao[]; campeonatos: CampeonatoOpcao[] }> => {
       const [corridas, pacotes, campeonatos] = await Promise.all([
-        supabase.from("competitions").select("id, title, starts_at").order("starts_at", { ascending: false }),
+        // Inclui rascunho, oculta e programada (o admin vê todas): o cupom fica pronto e passa a valer quando ela for ao ar.
+        supabase.from("competitions").select("id, title, starts_at, status, publish_at").order("starts_at", { ascending: false }),
         // Pacotes = só os planos de 12 inscrições (RunLab Club). Inscrição avulsa e com kit da página geral
         // não são pacote: ficam em "Página geral" (24/11/2026).
         supabase.from("plans").select("id, name, price, is_active").eq("type", "anual").order("price", { ascending: true }),
