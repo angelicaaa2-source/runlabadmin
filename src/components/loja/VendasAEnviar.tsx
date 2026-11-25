@@ -295,8 +295,8 @@ export function VendasAEnviar() {
 
       {config && !config.carrinhoLigado && (
         <p className="rounded-lg border border-[#CCF725]/40 bg-[#CCF725]/10 px-3 py-2 text-xs text-foreground">
-          Ambiente de teste: frete e pontos de postagem são reais, mas Enviar para o Melhor Envio só simula (nada vai
-          para o carrinho de lá).
+          Envio ao carrinho desligado: frete e pontos de postagem são reais, mas Enviar para o Melhor Envio só simula
+          até a liberação (nada vai para o carrinho de lá).
         </p>
       )}
 
@@ -522,7 +522,7 @@ export function VendasAEnviar() {
                   Total {reais(total)}, saindo de {origemAtual?.label ?? "-"}. As vendas vão para o carrinho do Melhor
                   Envio, sem custo. Depois é só clicar em Pagar no Melhor Envio e pagar lá (Pix, cartão ou saldo).
                 </p>
-                {config && !config.carrinhoLigado && <p>Ambiente de teste: este clique só simula. Nada vai para o carrinho.</p>}
+                {config && !config.carrinhoLigado && <p>Envio ao carrinho desligado: este clique só simula. Nada vai para o carrinho.</p>}
               </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
