@@ -14,7 +14,13 @@ export type LevelInfo = {
 export type ParceiroCommissionItem = {
   id: string;
   data: string;
+  /** Descrição da cobrança (o que foi comprado). */
   competicao: string;
+  /** Quem comprou com o código do parceiro (abre o painel do corredor). */
+  corredorId: string | null;
+  corredorNome: string;
+  /** Corrida da compra direto na corrida, ou corridas em que o crédito foi usado depois da compra. */
+  corrida: string;
   valor: string;
   valorNum: number;
   status: "pending" | "confirmed" | "paid" | "cancelled" | string;
@@ -170,7 +176,7 @@ export function useParceiroDetails(id: string | undefined) {
           .eq("state", "finished"),
         supabase
           .from("partner_commissions")
-          .select("id, payment_id, commission_amount, status, created_at")
+          .select("id, payment_id, runner_id, commission_amount, status, created_at")
           .eq("partner_id", id)
           .in("status", ["pending", "confirmed"])
           .order("created_at", { ascending: false })
@@ -250,24 +256,97 @@ export function useParceiroDetails(id: string | undefined) {
         commissionsRows.reduce((acc, c) => acc + Number(c.commission_amount), 0) * 100,
       ) / 100;
 
+      // Quem comprou com o código e em qual corrida se inscreveu (pedido da Angélica, 24/11/2026):
+      // compra direto na corrida → a corrida da compra; compra de créditos → as corridas em que esse
+      // corredor usou crédito depois da compra (créditos não têm vínculo 1 a 1 com a inscrição).
       const paymentIds = [...new Set(commissionsRows.map((c) => c.payment_id).filter(Boolean))];
-      const descByPayment: Record<string, string> = {};
+      type Pagamento = { description: string | null; user_id: string | null; competition_id: string | null; lot_id: string | null; quando: string | null };
+      const pagamentoPorId: Record<string, Pagamento> = {};
       if (paymentIds.length > 0) {
         const { data: payments } = await supabase
           .from("runner_payments")
-          .select("id, description")
+          .select("id, description, user_id, competition_id, lot_id, paid_at, created_at")
           .in("id", paymentIds);
         (payments ?? []).forEach((p) => {
-          descByPayment[p.id] = p.description ?? "Comissão";
+          pagamentoPorId[p.id] = {
+            description: p.description, user_id: p.user_id, competition_id: p.competition_id,
+            lot_id: p.lot_id, quando: p.paid_at ?? p.created_at,
+          };
         });
+      }
+      const corredorDe = (c: { runner_id?: string | null; payment_id: string }) =>
+        c.runner_id ?? pagamentoPorId[c.payment_id]?.user_id ?? null;
+      const corredorIds = [...new Set(commissionsRows.map(corredorDe).filter(Boolean))] as string[];
+      const lotIds = [...new Set(Object.values(pagamentoPorId).map((p) => p.lot_id).filter(Boolean))] as string[];
+
+      const [perfisRes, lotesRes, usosRes] = await Promise.all([
+        corredorIds.length
+          ? supabase.from("profiles").select("id, full_name").in("id", corredorIds)
+          : Promise.resolve({ data: [] as Array<{ id: string; full_name: string | null }> }),
+        lotIds.length
+          ? supabase.from("competition_lots").select("id, competition_id").in("id", lotIds)
+          : Promise.resolve({ data: [] as Array<{ id: string; competition_id: string }> }),
+        corredorIds.length
+          ? supabase
+              .from("credit_transactions")
+              .select("user_id, competition_registration_id, created_at")
+              .eq("type", "usage")
+              .not("competition_registration_id", "is", null)
+              .in("user_id", corredorIds)
+          : Promise.resolve({ data: [] as Array<{ user_id: string; competition_registration_id: string | null; created_at: string }> }),
+      ]);
+      const nomeCorredor: Record<string, string> = {};
+      (perfisRes.data ?? []).forEach((p) => { nomeCorredor[p.id] = p.full_name ?? "Corredor"; });
+      const corridaDoLote: Record<string, string> = {};
+      (lotesRes.data ?? []).forEach((l) => { corridaDoLote[l.id] = l.competition_id; });
+
+      const usosBrutos = usosRes.data ?? [];
+      const regIds = [...new Set(usosBrutos.map((u) => u.competition_registration_id).filter(Boolean))] as string[];
+      const corridaDaInscricao: Record<string, string> = {};
+      if (regIds.length) {
+        const { data: regs } = await supabase.from("competition_registrations").select("id, competition_id").in("id", regIds);
+        (regs ?? []).forEach((r) => { corridaDaInscricao[r.id] = r.competition_id; });
+      }
+      const usos = usosBrutos
+        .map((u) => ({ user_id: u.user_id, competition_id: corridaDaInscricao[u.competition_registration_id ?? ""], quando: new Date(u.created_at).getTime() }))
+        .filter((u) => u.competition_id)
+        .sort((a, b) => a.quando - b.quando);
+
+      const corridaIds = [...new Set([
+        ...Object.values(pagamentoPorId).map((p) => p.competition_id),
+        ...Object.values(corridaDoLote),
+        ...usos.map((u) => u.competition_id),
+      ].filter(Boolean))] as string[];
+      const tituloCorrida: Record<string, string> = {};
+      if (corridaIds.length) {
+        const { data: comps } = await supabase.from("competitions").select("id, title").in("id", corridaIds);
+        (comps ?? []).forEach((c) => { tituloCorrida[c.id] = c.title; });
       }
 
       const comissoes: ParceiroCommissionItem[] = commissionsRows.map((c) => {
         const valorNum = Number(c.commission_amount);
+        const pag = pagamentoPorId[c.payment_id];
+        const corredorId = corredorDe(c);
+        const corridaDireta = pag?.competition_id ?? (pag?.lot_id ? corridaDoLote[pag.lot_id] : null);
+        let corrida: string;
+        if (corridaDireta) {
+          corrida = tituloCorrida[corridaDireta] ?? "—";
+        } else {
+          const desde = new Date(pag?.quando ?? c.created_at).getTime() - 60_000;
+          const titulos = [...new Set(
+            usos.filter((u) => u.user_id === corredorId && u.quando >= desde).map((u) => tituloCorrida[u.competition_id]).filter(Boolean),
+          )];
+          corrida = titulos.length === 0
+            ? "Crédito ainda não usado"
+            : titulos.length > 3 ? `${titulos.slice(0, 3).join(", ")} +${titulos.length - 3}` : titulos.join(", ");
+        }
         return {
           id: c.id,
           data: formatDate(c.created_at),
-          competicao: descByPayment[c.payment_id] ?? "Comissão",
+          competicao: pag?.description ?? "Comissão",
+          corredorId,
+          corredorNome: corredorId ? (nomeCorredor[corredorId] ?? "Corredor") : "—",
+          corrida,
           valor: formatBrl(valorNum),
           valorNum,
           status: c.status ?? "pending",
