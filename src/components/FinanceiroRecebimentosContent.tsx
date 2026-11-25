@@ -18,6 +18,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { ExportDialog } from "@/components/ExportDialog";
+import { CorredorPerfilSheet } from "@/components/CorredorPerfilSheet";
 import { Pagination } from "@/components/Pagination";
 import { formatCurrency } from "@/lib/formatCurrency";
 import { downloadRecebimentosCsv } from "@/lib/exportFinanceiroCsv";
@@ -90,6 +91,8 @@ export const FinanceiroRecebimentosContent = () => {
   const [filterDialogOpen, setFilterDialogOpen] = useState(false);
   const [exportDialogOpen, setExportDialogOpen] = useState(false);
   const [exporting, setExporting] = useState(false);
+  // Painel do corredor (perfil, créditos e histórico) sem sair de Recebimentos (pedido da Angélica, 24/11/2026).
+  const [perfil, setPerfil] = useState<{ id: string; nome: string } | null>(null);
 
   const debouncedSet = useCallback(() => {
     setDebouncedSearch(searchInput.trim());
@@ -220,7 +223,11 @@ export const FinanceiroRecebimentosContent = () => {
                 </TableRow>
               ) : (
                 paginatedRows.map((row) => (
-                  <RecebimentoRowItem key={row.id} row={row} />
+                  <RecebimentoRowItem
+                    key={row.id}
+                    row={row}
+                    onAbrirPerfil={() => row.userId && setPerfil({ id: row.userId, nome: row.nome })}
+                  />
                 ))
               )}
             </TableBody>
@@ -309,6 +316,8 @@ export const FinanceiroRecebimentosContent = () => {
         </DialogContent>
       </Dialog>
 
+      <CorredorPerfilSheet userId={perfil?.id ?? null} userName={perfil?.nome} onClose={() => setPerfil(null)} />
+
       {/* Dialog de exportação */}
       <ExportDialog
         open={exportDialogOpen}
@@ -320,11 +329,25 @@ export const FinanceiroRecebimentosContent = () => {
   );
 };
 
-function RecebimentoRowItem({ row }: { row: RecebimentoRow }) {
+function RecebimentoRowItem({ row, onAbrirPerfil }: { row: RecebimentoRow; onAbrirPerfil: () => void }) {
   return (
     <TableRow className="border-b border-[#808080] hover:bg-muted/30 transition-colors bg-[#262626]">
       <TableCell className="text-sm text-[#E0E0E0]">{row.shortId}</TableCell>
-      <TableCell className="text-sm text-[#E0E0E0]">{row.nome}</TableCell>
+      <TableCell className="text-sm text-[#E0E0E0]">
+        {row.userId ? (
+          <button
+            type="button"
+            data-abrir-corredor
+            onClick={onAbrirPerfil}
+            className="text-left font-medium underline-offset-2 hover:text-primary hover:underline transition-colors"
+            title="Ver perfil, créditos e histórico"
+          >
+            {row.nome}
+          </button>
+        ) : (
+          row.nome
+        )}
+      </TableCell>
       <TableCell className="text-sm text-[#E0E0E0]">{row.tipoRecebimento}</TableCell>
       <TableCell className="text-sm text-[#E0E0E0]">{row.produto}</TableCell>
       <TableCell className="text-sm text-[#E0E0E0]">{row.competicao}</TableCell>
