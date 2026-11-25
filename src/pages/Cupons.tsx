@@ -20,8 +20,9 @@ import {
   formataUsoPorCpf,
   formataValidade,
   statusDoCupom,
-  valeInscricoes,
+  tipoDeInscricao,
   valePacotes,
+  type CampeonatoOpcao,
   type CorridaOpcao,
   type Cupom,
   type PacoteOpcao,
@@ -145,46 +146,70 @@ function useCodigosParceiros() {
 function useOpcoes() {
   return useQuery({
     queryKey: ["cupons-opcoes"],
-    queryFn: async (): Promise<{ corridas: CorridaOpcao[]; pacotes: PacoteOpcao[] }> => {
-      const [corridas, pacotes] = await Promise.all([
+    queryFn: async (): Promise<{ corridas: CorridaOpcao[]; pacotes: PacoteOpcao[]; campeonatos: CampeonatoOpcao[] }> => {
+      const [corridas, pacotes, campeonatos] = await Promise.all([
         supabase.from("competitions").select("id, title, starts_at").order("starts_at", { ascending: false }),
-        supabase.from("plans").select("id, name, price, is_active").order("price", { ascending: true }),
+        // Pacotes = só os planos de 12 inscrições (RunLab Club). Inscrição avulsa e com kit da página geral
+        // não são pacote: ficam em "Página geral" (24/11/2026).
+        supabase.from("plans").select("id, name, price, is_active").eq("type", "anual").order("price", { ascending: true }),
+        supabase.from("championships").select("id, name").order("name", { ascending: true }),
       ]);
       if (corridas.error) throw corridas.error;
       if (pacotes.error) throw pacotes.error;
+      if (campeonatos.error) throw campeonatos.error;
       return {
         corridas: (corridas.data ?? []) as CorridaOpcao[],
         pacotes: (pacotes.data ?? []) as PacoteOpcao[],
+        campeonatos: (campeonatos.data ?? []) as CampeonatoOpcao[],
       };
     },
     staleTime: 5 * 60 * 1000,
   });
 }
 
-function ValePara({ cupom, corridas, pacotes }: { cupom: Cupom; corridas: CorridaOpcao[]; pacotes: PacoteOpcao[] }) {
+function ValePara({
+  cupom,
+  corridas,
+  pacotes,
+  campeonatos,
+}: {
+  cupom: Cupom;
+  corridas: CorridaOpcao[];
+  pacotes: PacoteOpcao[];
+  campeonatos: CampeonatoOpcao[];
+}) {
   const itens: { texto: string; detalhe?: string }[] = [];
+  const tipo = tipoDeInscricao(cupom.lot_kinds);
 
-  if (valeInscricoes(cupom)) {
-    const kits = cupom.lot_kinds;
-    const tipo =
-      kits === null ? "Inscrição com ou sem kit" : kits.includes("com_kit") ? "Inscrição com kit" : "Inscrição sem kit";
-    if (cupom.competition_ids === null) {
-      itens.push({ texto: `${tipo}, todas as corridas` });
-    } else {
-      const nomes = cupom.competition_ids.map((id) => corridas.find((c) => c.id === id)?.title ?? "corrida removida");
-      itens.push({
-        texto: `${tipo}, ${nomes.length === 1 ? nomes[0] : `${nomes.length} corridas`}`,
-        detalhe: nomes.length > 1 ? nomes.join(", ") : undefined,
-      });
+  if (cupom.general_checkout) {
+    itens.push({ texto: `Página geral: ${tipo.toLowerCase()}` });
+  }
+
+  if (cupom.in_races) {
+    const partes: string[] = [];
+    const detalhes: string[] = [];
+    if (cupom.championship_ids) {
+      const nomes = cupom.championship_ids.map((id) => campeonatos.find((c) => c.id === id)?.name ?? "campeonato removido");
+      partes.push(nomes.length === 1 ? `corridas do ${nomes[0]}` : `corridas de ${nomes.length} campeonatos`);
+      detalhes.push(...nomes);
     }
+    if (cupom.competition_ids) {
+      const nomes = cupom.competition_ids.map((id) => corridas.find((c) => c.id === id)?.title ?? "corrida removida");
+      partes.push(nomes.length === 1 ? nomes[0] : `${nomes.length} corridas escolhidas`);
+      if (nomes.length > 1) detalhes.push(...nomes);
+    }
+    itens.push({
+      texto: `Dentro das corridas: ${tipo.toLowerCase()}, ${partes.length ? partes.join(" + ") : "todas as corridas"}`,
+      detalhe: detalhes.length > 1 ? detalhes.join(", ") : undefined,
+    });
   }
 
   if (valePacotes(cupom)) {
     if (cupom.plan_ids === null) {
-      itens.push({ texto: "Todos os pacotes" });
+      itens.push({ texto: "Pacotes: todos (RunLab Club)" });
     } else {
       const nomes = cupom.plan_ids.map((id) => pacotes.find((p) => p.id === id)?.name ?? "pacote removido");
-      itens.push({ texto: nomes.join(", ") });
+      itens.push({ texto: `Pacotes: ${nomes.join(", ")}` });
     }
   }
 
@@ -291,6 +316,7 @@ const Cupons = () => {
   const { data: opcoes } = useOpcoes();
   const corridas = opcoes?.corridas ?? [];
   const pacotes = opcoes?.pacotes ?? [];
+  const campeonatos = opcoes?.campeonatos ?? [];
   const { data: codigosParceiros, isLoading: carregandoParceiros, error: erroParceiros } = useCodigosParceiros();
   const parceiros: ParceiroOpcao[] = (codigosParceiros ?? []).map((p) => ({ id: p.id, nome: p.nome, codigo: p.codigo }));
   const nomeDoDono = (id: string | null) => {
@@ -479,7 +505,7 @@ const Cupons = () => {
                       )}
                     </TableCell>
                     <TableCell className="text-foreground text-sm">
-                      <ValePara cupom={cupom} corridas={corridas} pacotes={pacotes} />
+                      <ValePara cupom={cupom} corridas={corridas} pacotes={pacotes} campeonatos={campeonatos} />
                     </TableCell>
                     <TableCell className="text-foreground text-sm">
                       {cupom.owner_partner_id && nomeDoDono(cupom.owner_partner_id) ? (
@@ -548,6 +574,7 @@ const Cupons = () => {
         cupom={editando}
         corridas={corridas}
         pacotes={pacotes}
+        campeonatos={campeonatos}
         parceiros={parceiros}
         onSaved={() => {
           toast.success(editando ? "Cupom atualizado" : "Cupom criado");

@@ -1,5 +1,6 @@
 // Cupons de desconto do checkout (tabela public.coupons).
-// Regras: ver supabase/migrations/20261123120000_coupon_rules_admin.sql no repositório checkout-runlab.
+// Regras: ver supabase/migrations/20261123120000_coupon_rules_admin.sql e
+// 20261125010000_cupons_onde_vale.sql (onde o cupom vale) no repositório checkout-runlab.
 
 export type LotKind = "sem_kit" | "com_kit";
 
@@ -15,12 +16,19 @@ export interface Cupom {
   /** NULL = sem limite por CPF/usuário. */
   max_uses_per_user: number | null;
   min_amount: number | null;
+  /** Calculado pelo banco (gatilho coupons_onde_vale); as funções antigas ainda leem. */
   applies_to: "plan" | "competition" | "both";
-  /** NULL = todas as corridas. */
+  /** Vale na página geral do checkout (Inscrição avulsa e com kit, que viram créditos). Não é pacote. */
+  general_checkout: boolean;
+  /** Vale dentro das corridas (compra feita na página de uma corrida). */
+  in_races: boolean;
+  /** Corridas destes campeonatos (inclui as futuras). Com competition_ids nulo também: todas. */
+  championship_ids: string[] | null;
+  /** Corridas escolhidas uma a uma. NULL (e championship_ids NULL) = todas as corridas. */
   competition_ids: string[] | null;
-  /** NULL = com e sem kit; [] = nenhuma inscrição. */
+  /** NULL = com e sem kit. Vale para a página geral e para as corridas. */
   lot_kinds: LotKind[] | null;
-  /** NULL = todos os pacotes; [] = nenhum pacote. */
+  /** Só pacotes (RunLab Club): NULL = todos; [] = nenhum. */
   plan_ids: string[] | null;
   /** Parceiro dono do cupom: recebe a comissão das compras com ele. NULL = cupom da RunLab, sem comissão. */
   owner_partner_id: string | null;
@@ -50,6 +58,11 @@ export interface PacoteOpcao {
   is_active: boolean;
 }
 
+export interface CampeonatoOpcao {
+  id: string;
+  name: string;
+}
+
 export type StatusCupom = "ativo" | "inativo" | "agendado" | "expirado" | "esgotado";
 
 /** O checkout troca DESCONTO100 por CORRERUNLAB: esse código não pode ser usado. */
@@ -64,22 +77,23 @@ export function statusDoCupom(c: Cupom, agora = new Date()): StatusCupom {
   return "ativo";
 }
 
-export function valeInscricoes(c: Pick<Cupom, "lot_kinds">): boolean {
-  return c.lot_kinds === null || c.lot_kinds.length > 0;
-}
-
 export function valePacotes(c: Pick<Cupom, "plan_ids">): boolean {
   return c.plan_ids === null || c.plan_ids.length > 0;
 }
 
-/** applies_to precisa bater com as listas (checagem coupons_applies_to_consistente no banco). */
-export function appliesToDe(lotKinds: LotKind[] | null, planIds: string[] | null): Cupom["applies_to"] | null {
-  const lotes = lotKinds === null || lotKinds.length > 0;
+/** Mesma conta do gatilho coupons_onde_vale do banco. null = o cupom não vale em lugar nenhum. */
+export function appliesToDe(geral: boolean, corridas: boolean, planIds: string[] | null): Cupom["applies_to"] | null {
   const pacotes = planIds === null || planIds.length > 0;
-  if (lotes && pacotes) return "both";
-  if (lotes) return "competition";
-  if (pacotes) return "plan";
+  if ((geral || pacotes) && corridas) return "both";
+  if (corridas) return "competition";
+  if (geral || pacotes) return "plan";
   return null;
+}
+
+/** "Inscrição com ou sem kit", "Inscrição com kit" ou "Inscrição sem kit". */
+export function tipoDeInscricao(lotKinds: LotKind[] | null): string {
+  if (lotKinds === null) return "Inscrição com ou sem kit";
+  return lotKinds.includes("com_kit") ? "Inscrição com kit" : "Inscrição sem kit";
 }
 
 const brl = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });

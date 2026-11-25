@@ -15,6 +15,7 @@ import {
   diaParaIso,
   formataReais,
   isoParaDia,
+  type CampeonatoOpcao,
   type CorridaOpcao,
   type Cupom,
   type LotKind,
@@ -28,7 +29,9 @@ interface CupomDialogProps {
   /** null = cupom novo */
   cupom: Cupom | null;
   corridas: CorridaOpcao[];
+  /** Só os pacotes de 12 inscrições (RunLab Club). */
   pacotes: PacoteOpcao[];
+  campeonatos: CampeonatoOpcao[];
   parceiros: ParceiroOpcao[];
   onSaved: () => void;
 }
@@ -38,11 +41,15 @@ interface FormState {
   description: string;
   discountType: "percent" | "fixed";
   discountValue: string;
+  /** Página geral do checkout (Inscrição avulsa e com kit, que viram créditos). */
+  geral: boolean;
+  /** Dentro das corridas (compra na página da corrida). */
+  corridas: boolean;
   semKit: boolean;
   comKit: boolean;
-  pacotesModo: "todos" | "alguns" | "nenhum";
   pacotesEscolhidos: string[];
-  corridasModo: "todas" | "algumas";
+  corridasModo: "todas" | "campeonato" | "algumas";
+  campeonatosEscolhidos: string[];
   corridasEscolhidas: string[];
   usoCpfModo: "um" | "ilimitado" | "outro";
   usoCpfNumero: string;
@@ -61,11 +68,13 @@ const VAZIO: FormState = {
   description: "",
   discountType: "percent",
   discountValue: "",
+  geral: true,
+  corridas: true,
   semKit: true,
   comKit: true,
-  pacotesModo: "todos",
   pacotesEscolhidos: [],
   corridasModo: "todas",
+  campeonatosEscolhidos: [],
   corridasEscolhidas: [],
   usoCpfModo: "um",
   usoCpfNumero: "2",
@@ -78,18 +87,20 @@ const VAZIO: FormState = {
   active: true,
 };
 
-function formDoCupom(c: Cupom): FormState {
+function formDoCupom(c: Cupom, pacotes: PacoteOpcao[]): FormState {
   const kinds = c.lot_kinds;
   return {
     code: c.code,
     description: c.description ?? "",
     discountType: c.discount_type,
     discountValue: String(Number(c.discount_value)),
+    geral: c.general_checkout ?? true,
+    corridas: c.in_races ?? true,
     semKit: kinds === null || kinds.includes("sem_kit"),
     comKit: kinds === null || kinds.includes("com_kit"),
-    pacotesModo: c.plan_ids === null ? "todos" : c.plan_ids.length === 0 ? "nenhum" : "alguns",
-    pacotesEscolhidos: c.plan_ids ?? [],
-    corridasModo: c.competition_ids === null ? "todas" : "algumas",
+    pacotesEscolhidos: c.plan_ids === null ? pacotes.map((p) => p.id) : c.plan_ids,
+    corridasModo: c.championship_ids ? "campeonato" : c.competition_ids ? "algumas" : "todas",
+    campeonatosEscolhidos: c.championship_ids ?? [],
     corridasEscolhidas: c.competition_ids ?? [],
     usoCpfModo: c.max_uses_per_user == null ? "ilimitado" : c.max_uses_per_user === 1 ? "um" : "outro",
     usoCpfNumero: c.max_uses_per_user != null && c.max_uses_per_user > 1 ? String(c.max_uses_per_user) : "2",
@@ -115,8 +126,9 @@ function inteiroPositivo(texto: string): number | null {
 const rotulo = "text-xs text-muted-foreground uppercase tracking-wide";
 const campo = "bg-[#1A1A1A] border-0 text-foreground";
 const opcao = "flex items-center gap-2 text-sm text-foreground cursor-pointer";
+const dica = "text-xs text-muted-foreground leading-snug";
 
-export const CupomDialog = ({ open, onOpenChange, cupom, corridas, pacotes, parceiros, onSaved }: CupomDialogProps) => {
+export const CupomDialog = ({ open, onOpenChange, cupom, corridas, pacotes, campeonatos, parceiros, onSaved }: CupomDialogProps) => {
   const { user } = useAuth();
   const [f, setF] = useState<FormState>(VAZIO);
   const [buscaCorrida, setBuscaCorrida] = useState("");
@@ -125,7 +137,7 @@ export const CupomDialog = ({ open, onOpenChange, cupom, corridas, pacotes, parc
 
   useEffect(() => {
     if (open) {
-      setF(cupom ? formDoCupom(cupom) : VAZIO);
+      setF(cupom ? formDoCupom(cupom, pacotes) : VAZIO);
       setBuscaCorrida("");
       setError(null);
       setSaving(false);
@@ -137,7 +149,7 @@ export const CupomDialog = ({ open, onOpenChange, cupom, corridas, pacotes, parc
     if (error) setError(null);
   };
 
-  const alterna = (chave: "pacotesEscolhidos" | "corridasEscolhidas", id: string) => {
+  const alterna = (chave: "pacotesEscolhidos" | "corridasEscolhidas" | "campeonatosEscolhidos", id: string) => {
     setF((atual) => {
       const lista = atual[chave];
       return { ...atual, [chave]: lista.includes(id) ? lista.filter((x) => x !== id) : [...lista, id] };
@@ -151,7 +163,7 @@ export const CupomDialog = ({ open, onOpenChange, cupom, corridas, pacotes, parc
     return corridas.filter((c) => c.title.toLowerCase().includes(termo));
   }, [buscaCorrida, corridas]);
 
-  const valeInscricao = f.semKit || f.comKit;
+  const valeInscricao = f.geral || f.corridas;
   const valor = numero(f.discountValue);
   const ficaGratis =
     f.discountType === "percent" && valor >= 100;
@@ -165,25 +177,31 @@ export const CupomDialog = ({ open, onOpenChange, cupom, corridas, pacotes, parc
     if (!Number.isFinite(valor) || valor <= 0) return "Informe o valor do desconto.";
     if (f.discountType === "percent" && valor > 100) return "A porcentagem vai até 100%.";
 
-    let lotKinds: LotKind[] | null;
-    if (f.semKit && f.comKit) lotKinds = null;
-    else lotKinds = [...(f.semKit ? (["sem_kit"] as LotKind[]) : []), ...(f.comKit ? (["com_kit"] as LotKind[]) : [])];
-
-    let planIds: string[] | null;
-    if (f.pacotesModo === "todos") planIds = null;
-    else if (f.pacotesModo === "nenhum") planIds = [];
-    else {
-      if (f.pacotesEscolhidos.length === 0) return "Escolha pelo menos um pacote, ou marque outra opção em Pacotes.";
-      planIds = f.pacotesEscolhidos;
+    if (valeInscricao && !f.semKit && !f.comKit) return "Tipo de inscrição: marque Sem kit, Com kit ou os dois.";
+    let lotKinds: LotKind[] | null = null;
+    if (valeInscricao && !(f.semKit && f.comKit)) {
+      lotKinds = [...(f.semKit ? (["sem_kit"] as LotKind[]) : []), ...(f.comKit ? (["com_kit"] as LotKind[]) : [])];
     }
 
-    const appliesTo = appliesToDe(lotKinds, planIds);
-    if (!appliesTo) return "O cupom precisa valer para alguma coisa: inscrição ou pacote.";
+    // Pacotes: todos marcados = todos (inclusive os que vierem depois); nenhum = não vale em pacote.
+    const todosPacotes = pacotes.map((p) => p.id);
+    let planIds: string[] | null;
+    if (f.pacotesEscolhidos.length === 0) planIds = [];
+    else if (todosPacotes.length > 0 && todosPacotes.every((id) => f.pacotesEscolhidos.includes(id))) planIds = null;
+    else planIds = f.pacotesEscolhidos;
+
+    const appliesTo = appliesToDe(f.geral, f.corridas, planIds);
+    if (!appliesTo) return "Marque pelo menos um lugar onde o cupom vale: página geral, dentro das corridas ou um pacote.";
 
     let competitionIds: string[] | null = null;
-    if (valeInscricao && f.corridasModo === "algumas") {
+    let championshipIds: string[] | null = null;
+    if (f.corridas && f.corridasModo === "algumas") {
       if (f.corridasEscolhidas.length === 0) return "Escolha pelo menos uma corrida, ou marque Todas as corridas.";
       competitionIds = f.corridasEscolhidas;
+    }
+    if (f.corridas && f.corridasModo === "campeonato") {
+      if (f.campeonatosEscolhidos.length === 0) return "Escolha pelo menos um campeonato, ou marque Todas as corridas.";
+      championshipIds = f.campeonatosEscolhidos;
     }
 
     let maxPorCpf: number | null;
@@ -214,9 +232,12 @@ export const CupomDialog = ({ open, onOpenChange, cupom, corridas, pacotes, parc
       discount_type: f.discountType,
       discount_value: valor,
       applies_to: appliesTo,
+      general_checkout: f.geral,
+      in_races: f.corridas,
       lot_kinds: lotKinds,
       plan_ids: planIds,
       competition_ids: competitionIds,
+      championship_ids: championshipIds,
       max_uses_per_user: maxPorCpf,
       max_uses: maxTotal,
       valid_from: f.inicio ? diaParaIso(f.inicio, false) : null,
@@ -350,98 +371,134 @@ export const CupomDialog = ({ open, onOpenChange, cupom, corridas, pacotes, parc
             </div>
           </div>
 
-          {/* Vale para */}
+          {/* Onde o cupom vale (24/11/2026): a página geral não é pacote */}
           <div className="space-y-3">
-            <label className={rotulo}>Vale para</label>
+            <label className={rotulo}>Onde o cupom vale</label>
             <div className="rounded-md bg-[#1A1A1A] p-4 space-y-4">
-              <div className="space-y-2">
-                <p className="text-sm font-medium text-foreground">Inscrição em corrida</p>
-                <div className="flex flex-wrap gap-6">
+              <div className="space-y-1">
+                <label className={opcao}>
+                  <Checkbox checked={f.geral} onCheckedChange={(v) => set("geral", v === true)} />
+                  Página geral do checkout
+                </label>
+                <p className={`${dica} pl-6`}>
+                  Inscrição avulsa e Inscrição com kit compradas na página geral (checkout.runlab.com.br). Viram créditos
+                  na conta e a pessoa escolhe a corrida depois, no app. Não é pacote.
+                </p>
+              </div>
+
+              <div className="space-y-2 border-t border-border/40 pt-4">
+                <div className="space-y-1">
                   <label className={opcao}>
-                    <Checkbox checked={f.semKit} onCheckedChange={(v) => set("semKit", v === true)} />
-                    Sem kit
+                    <Checkbox checked={f.corridas} onCheckedChange={(v) => set("corridas", v === true)} />
+                    Dentro das corridas
                   </label>
-                  <label className={opcao}>
-                    <Checkbox checked={f.comKit} onCheckedChange={(v) => set("comKit", v === true)} />
-                    Com kit
-                  </label>
+                  <p className={`${dica} pl-6`}>
+                    Compra feita na página de uma corrida (link da corrida no app ou no site). A inscrição já sai feita
+                    naquela corrida.
+                  </p>
                 </div>
+                {f.corridas && (
+                  <div className="space-y-2 pl-6 pt-1">
+                    <RadioGroup
+                      value={f.corridasModo}
+                      onValueChange={(v) => set("corridasModo", v as FormState["corridasModo"])}
+                      className="flex flex-col gap-2"
+                    >
+                      <label className={opcao}><RadioGroupItem value="todas" /> Todas as corridas</label>
+                      <label className={opcao}><RadioGroupItem value="campeonato" /> Só as corridas de um campeonato</label>
+                      <label className={opcao}><RadioGroupItem value="algumas" /> Só as corridas que eu escolher</label>
+                    </RadioGroup>
+                    {f.corridasModo === "campeonato" && (
+                      <div className="space-y-1 pt-1">
+                        {campeonatos.length === 0 && <p className={dica}>Nenhum campeonato cadastrado.</p>}
+                        {campeonatos.map((c) => (
+                          <label key={c.id} className={`${opcao} py-1`}>
+                            <Checkbox
+                              checked={f.campeonatosEscolhidos.includes(c.id)}
+                              onCheckedChange={() => alterna("campeonatosEscolhidos", c.id)}
+                            />
+                            <span>{c.name}</span>
+                          </label>
+                        ))}
+                        <p className={dica}>Vale em todas as etapas do campeonato, inclusive as que ainda vão ser criadas.</p>
+                      </div>
+                    )}
+                    {f.corridasModo === "algumas" && (
+                      <div className="space-y-2 pt-1">
+                        <Input
+                          value={buscaCorrida}
+                          onChange={(e) => setBuscaCorrida(e.target.value)}
+                          placeholder="Buscar corrida pelo nome"
+                          className="bg-[#2a2a2a] border-0 text-foreground"
+                        />
+                        <div className="max-h-48 overflow-y-auto space-y-1 pr-1">
+                          {corridasFiltradas.length === 0 && (
+                            <p className="text-sm text-muted-foreground py-2">Nenhuma corrida encontrada.</p>
+                          )}
+                          {corridasFiltradas.map((c) => (
+                            <label key={c.id} className={`${opcao} py-1`}>
+                              <Checkbox
+                                checked={f.corridasEscolhidas.includes(c.id)}
+                                onCheckedChange={() => alterna("corridasEscolhidas", c.id)}
+                              />
+                              <span className="flex-1">{c.title}</span>
+                              {c.starts_at && (
+                                <span className="text-xs text-muted-foreground">
+                                  {new Date(c.starts_at).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })}
+                                </span>
+                              )}
+                            </label>
+                          ))}
+                        </div>
+                        <p className={dica}>
+                          {f.corridasEscolhidas.length}{" "}
+                          {f.corridasEscolhidas.length === 1 ? "corrida escolhida" : "corridas escolhidas"}. Corrida
+                          nova não entra sozinha: para isso, use "Só as corridas de um campeonato".
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
               {valeInscricao && (
-                <div className="space-y-2">
-                  <p className="text-sm font-medium text-foreground">Em quais corridas</p>
-                  <RadioGroup
-                    value={f.corridasModo}
-                    onValueChange={(v) => set("corridasModo", v as FormState["corridasModo"])}
-                    className="flex gap-6"
-                  >
-                    <label className={opcao}><RadioGroupItem value="todas" /> Todas as corridas</label>
-                    <label className={opcao}><RadioGroupItem value="algumas" /> Só as que eu escolher</label>
-                  </RadioGroup>
-                  {f.corridasModo === "algumas" && (
-                    <div className="space-y-2 pt-1">
-                      <Input
-                        value={buscaCorrida}
-                        onChange={(e) => setBuscaCorrida(e.target.value)}
-                        placeholder="Buscar corrida pelo nome"
-                        className="bg-[#2a2a2a] border-0 text-foreground"
-                      />
-                      <div className="max-h-48 overflow-y-auto space-y-1 pr-1">
-                        {corridasFiltradas.length === 0 && (
-                          <p className="text-sm text-muted-foreground py-2">Nenhuma corrida encontrada.</p>
-                        )}
-                        {corridasFiltradas.map((c) => (
-                          <label key={c.id} className={`${opcao} py-1`}>
-                            <Checkbox
-                              checked={f.corridasEscolhidas.includes(c.id)}
-                              onCheckedChange={() => alterna("corridasEscolhidas", c.id)}
-                            />
-                            <span className="flex-1">{c.title}</span>
-                            {c.starts_at && (
-                              <span className="text-xs text-muted-foreground">
-                                {new Date(c.starts_at).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })}
-                              </span>
-                            )}
-                          </label>
-                        ))}
-                      </div>
-                      <p className="text-xs text-muted-foreground">
-                        {f.corridasEscolhidas.length} {f.corridasEscolhidas.length === 1 ? "corrida escolhida" : "corridas escolhidas"}
-                      </p>
-                    </div>
-                  )}
+                <div className="space-y-2 border-t border-border/40 pt-4">
+                  <p className="text-sm font-medium text-foreground">Tipo de inscrição</p>
+                  <p className={dica}>Vale para a página geral e para as corridas marcadas acima.</p>
+                  <div className="flex flex-wrap gap-6">
+                    <label className={opcao}>
+                      <Checkbox checked={f.semKit} onCheckedChange={(v) => set("semKit", v === true)} />
+                      Sem kit (inscrição avulsa)
+                    </label>
+                    <label className={opcao}>
+                      <Checkbox checked={f.comKit} onCheckedChange={(v) => set("comKit", v === true)} />
+                      Com kit
+                    </label>
+                  </div>
                 </div>
               )}
 
               <div className="space-y-2 border-t border-border/40 pt-4">
                 <p className="text-sm font-medium text-foreground">Pacotes</p>
-                <RadioGroup
-                  value={f.pacotesModo}
-                  onValueChange={(v) => set("pacotesModo", v as FormState["pacotesModo"])}
-                  className="flex flex-wrap gap-6"
-                >
-                  <label className={opcao}><RadioGroupItem value="todos" /> Todos os pacotes</label>
-                  <label className={opcao}><RadioGroupItem value="alguns" /> Só os que eu escolher</label>
-                  <label className={opcao}><RadioGroupItem value="nenhum" /> Não vale para pacotes</label>
-                </RadioGroup>
-                {f.pacotesModo === "alguns" && (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-1 pt-1">
-                    {pacotes.map((p) => (
-                      <label key={p.id} className={`${opcao} py-1`}>
-                        <Checkbox
-                          checked={f.pacotesEscolhidos.includes(p.id)}
-                          onCheckedChange={() => alterna("pacotesEscolhidos", p.id)}
-                        />
-                        <span>{p.name}</span>
-                        <span className="text-xs text-muted-foreground">
-                          {formataReais(Number(p.price))}
-                          {!p.is_active && " (fora de venda)"}
-                        </span>
-                      </label>
-                    ))}
-                  </div>
-                )}
+                <p className={dica}>
+                  Só o pacote de 12 inscrições. A Inscrição avulsa e a com kit da página geral ficam em "Página geral do
+                  checkout", lá em cima.
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-1 pt-1">
+                  {pacotes.map((p) => (
+                    <label key={p.id} className={`${opcao} py-1`}>
+                      <Checkbox
+                        checked={f.pacotesEscolhidos.includes(p.id)}
+                        onCheckedChange={() => alterna("pacotesEscolhidos", p.id)}
+                      />
+                      <span>{p.name}</span>
+                      <span className="text-xs text-muted-foreground">
+                        {formataReais(Number(p.price))}
+                        {!p.is_active && " (fora de venda)"}
+                      </span>
+                    </label>
+                  ))}
+                </div>
               </div>
             </div>
           </div>
