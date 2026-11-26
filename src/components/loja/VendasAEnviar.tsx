@@ -62,7 +62,8 @@ interface VendaEnvio {
   cidade: string | null;
   estado: string | null;
   cep: string | null;
-  itens: { peca: "camiseta" | "medalha"; modelo: string; tamanho: string; quantidade: number }[];
+  /** "extra" = levado a mais no "Leve também" (26/11/2026), fora do kit. */
+  itens: { peca: "camiseta" | "medalha" | "extra"; modelo: string; tamanho: string; quantidade: number }[];
   kits: number;
   lancada_no_dash: boolean;
   envio: Envio | null;
@@ -417,6 +418,7 @@ export function VendasAEnviar() {
                           {i.modelo}
                           <span className="text-xs text-muted-foreground">
                             {i.peca === "medalha" ? ` · fita ${i.tamanho}` : ` · ${i.tamanho}`}
+                            {i.peca === "extra" ? " · avulso (Leve também)" : ""}
                           </span>
                         </span>
                       ))}
