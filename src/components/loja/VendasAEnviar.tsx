@@ -364,7 +364,7 @@ export function VendasAEnviar() {
 
       {data && (
         <div className="overflow-x-auto rounded-lg border border-border">
-          <table className="w-full text-sm">
+          <table className="w-full text-sm max-lg:[&_td]:whitespace-nowrap max-lg:[&_th]:whitespace-nowrap">
             <thead>
               <tr className="text-left text-xs uppercase tracking-wide text-muted-foreground">
                 <th className="px-3 py-2 font-medium" aria-label="Marcar" />

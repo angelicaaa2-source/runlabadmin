@@ -59,7 +59,7 @@ export const EditarCupomParceiroDialog = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="bg-[#2a2a2a] border-0 sm:max-w-[500px] p-8">
+      <DialogContent className="bg-[#2a2a2a] border-0 sm:max-w-[500px] p-5 sm:p-8">
         <button
           onClick={() => onOpenChange(false)}
           className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none"

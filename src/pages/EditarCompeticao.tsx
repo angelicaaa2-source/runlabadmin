@@ -801,7 +801,7 @@ const EditarCompeticao = () => {
     return (
       <div className="min-h-screen bg-background">
         <Header />
-        <div className="pt-24 container mx-auto px-6 py-8">
+        <div className="pt-20 lg:pt-24 container mx-auto px-4 sm:px-6 py-8">
           <p className="text-destructive">ID da competição não informado.</p>
           <Button variant="link" onClick={() => navigate("/gestao-competicoes")}>Voltar</Button>
         </div>
@@ -813,7 +813,7 @@ const EditarCompeticao = () => {
     return (
       <div className="min-h-screen bg-background">
         <Header />
-        <div className="pt-24 container mx-auto px-6 py-8 flex items-center justify-center">
+        <div className="pt-20 lg:pt-24 container mx-auto px-4 sm:px-6 py-8 flex items-center justify-center">
           <p className="text-muted-foreground">Carregando competição...</p>
         </div>
       </div>
@@ -824,7 +824,7 @@ const EditarCompeticao = () => {
     return (
       <div className="min-h-screen bg-background">
         <Header />
-        <div className="pt-24 container mx-auto px-6 py-8">
+        <div className="pt-20 lg:pt-24 container mx-auto px-4 sm:px-6 py-8">
           <p className="text-destructive">{errorCompetition?.message ?? "Competição não encontrada."}</p>
           <Button variant="link" onClick={() => navigate("/gestao-competicoes")}>Voltar à lista</Button>
         </div>
@@ -834,11 +834,11 @@ const EditarCompeticao = () => {
 
   return <div className="min-h-screen bg-background">
       <Header />
-      <div className="pt-24">
+      <div className="pt-20 lg:pt-24">
       {/* Action Bar */}
       <div className="border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="container mx-auto px-6 py-4">
-          <div className="flex items-center justify-between">
+        <div className="container mx-auto px-4 sm:px-6 py-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
             <Button variant="ghost" className="gap-2 hover:bg-transparent" style={{ color: '#CCF725' }} onClick={() => navigate(`/gestao-competicoes/${id}`)}>
               <ChevronLeft className="w-4 h-4" />
               Voltar
@@ -855,7 +855,7 @@ const EditarCompeticao = () => {
       </div>
 
       {/* Edit Banner */}
-      <div className="container mx-auto px-6 py-4">
+      <div className="container mx-auto px-4 sm:px-6 py-4">
         <div className="flex items-center gap-3 rounded-[20px] px-6 py-4" style={{
         backgroundColor: '#CCF725',
         color: '#1A1A1A'
@@ -870,10 +870,10 @@ const EditarCompeticao = () => {
       </div>
 
       {/* Main Content */}
-      <main className="container mx-auto px-6 py-8">
+      <main className="container mx-auto px-4 sm:px-6 py-8">
         <div>
           {/* Image Upload Area */}
-          <div className="relative rounded-[20px] bg-[#1A1A1A] p-12 flex flex-col items-center justify-center gap-4 min-h-[400px]" onDragOver={handleDragOver} onDrop={handleDrop}>
+          <div className="relative rounded-[20px] bg-[#1A1A1A] p-6 sm:p-12 flex flex-col items-center justify-center gap-4 min-h-[260px] sm:min-h-[400px]" onDragOver={handleDragOver} onDrop={handleDrop}>
             {previewUrl ? <div className="relative w-full h-full flex items-center justify-center">
                 <img src={previewUrl} alt="Preview" className="max-w-full max-h-[350px] rounded-lg object-contain" />
                 <button
@@ -911,7 +911,7 @@ const EditarCompeticao = () => {
 
           {/* Dados Básicos Form */}
           <div className="mt-10">
-            <div className="rounded-[20px] border border-border/50 bg-[#2A2A2A] p-8">
+            <div className="rounded-[20px] border border-border/50 bg-[#2A2A2A] p-5 sm:p-8">
               <h2 className="text-lg font-semibold mb-6">Dados básicos</h2>
 
               {/* Nome da competição */}
@@ -938,7 +938,7 @@ const EditarCompeticao = () => {
               </div>
 
               {/* Modalidade e Formato */}
-              <div className="grid grid-cols-2 gap-4 mb-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
                 <div>
                   <Label htmlFor="modalidade" className="text-sm text-muted-foreground mb-2 block">
                     Modalidade
@@ -990,7 +990,7 @@ const EditarCompeticao = () => {
 
               {/* Vincular campeonato */}
               <div className="mb-6">
-                <div className="flex items-center justify-between mb-2">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 mb-2">
                   <Label htmlFor="campeonato" className="text-sm text-muted-foreground">
                     Vincular campeonato
                   </Label>
@@ -1067,7 +1067,7 @@ const EditarCompeticao = () => {
 
           {/* Período Section */}
           <div className="mt-6">
-            <div className="rounded-[20px] border border-border/50 bg-[#2A2A2A] p-8">
+            <div className="rounded-[20px] border border-border/50 bg-[#2A2A2A] p-5 sm:p-8">
               <h2 className="text-lg font-semibold mb-6">Período</h2>
 
               {/* Período de inscrições */}
@@ -1075,7 +1075,7 @@ const EditarCompeticao = () => {
                 <Label className="text-sm text-muted-foreground mb-3 block">
                   Período de inscrições
                 </Label>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   {/* Data Início Inscrição */}
                   <div>
                     <Popover>
@@ -1113,7 +1113,7 @@ const EditarCompeticao = () => {
                 <Label className="text-sm text-muted-foreground mb-3 block">
                   Período da competição
                 </Label>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   {/* Data Início Competição */}
                   <div>
                     <Popover>
@@ -1151,7 +1151,7 @@ const EditarCompeticao = () => {
 
           {/* Regras Section */}
           <div className="mt-6">
-            <div className="rounded-[20px] border border-border/50 bg-[#2A2A2A] p-8">
+            <div className="rounded-[20px] border border-border/50 bg-[#2A2A2A] p-5 sm:p-8">
               <h2 className="text-lg font-semibold mb-6">Regras</h2>
 
               {/* Tentativas ilimitadas */}
@@ -1217,7 +1217,7 @@ const EditarCompeticao = () => {
 
           {/* Premiações Section */}
           <div className="mt-6">
-            <div className="rounded-[20px] border border-border/50 bg-[#2A2A2A] p-8">
+            <div className="rounded-[20px] border border-border/50 bg-[#2A2A2A] p-5 sm:p-8">
               <h2 className="text-lg font-semibold mb-6">Premiações</h2>
 
               {/* Sim/Não Radio */}
@@ -1334,7 +1334,7 @@ const EditarCompeticao = () => {
 
           {/* Inscrição e checkout Section */}
           <div className="mt-6">
-            <div className="rounded-[20px] border border-border/50 bg-[#2A2A2A] p-8">
+            <div className="rounded-[20px] border border-border/50 bg-[#2A2A2A] p-5 sm:p-8">
               <h2 className="text-lg font-semibold mb-6">Inscrição e checkout</h2>
 
               {/* Tipo de competição */}
@@ -1470,7 +1470,7 @@ const EditarCompeticao = () => {
 
           {/* Patrocinadores da corrida (logo, nome e link) */}
           <div className="mt-6">
-            <div className="rounded-[20px] border border-border/50 bg-[#2A2A2A] p-8">
+            <div className="rounded-[20px] border border-border/50 bg-[#2A2A2A] p-5 sm:p-8">
               <h2 className="text-lg font-semibold mb-6">Patrocinadores</h2>
               <PatrocinadoresCampos itens={patrocinadores} onChange={setPatrocinadores} disabled={isSaving} />
             </div>
@@ -1478,7 +1478,7 @@ const EditarCompeticao = () => {
 
           {/* Documentos Section */}
           <div className="mt-6">
-            <div className="rounded-[20px] border border-border/50 bg-[#2A2A2A] p-8">
+            <div className="rounded-[20px] border border-border/50 bg-[#2A2A2A] p-5 sm:p-8">
               <h2 className="text-lg font-semibold mb-6">Documentos</h2>
 
               {existingDocs.filter((d) => !removedDocIds.includes(d.id)).length > 0 && (
@@ -1516,10 +1516,10 @@ const EditarCompeticao = () => {
                 </div>
               )}
 
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 {/* Documento 1 */}
                 <div
-                  className="relative rounded-[20px] bg-[#1A1A1A] p-8 flex flex-col items-center justify-center gap-3 min-h-[200px]"
+                  className="relative rounded-[20px] bg-[#1A1A1A] p-5 sm:p-8 flex flex-col items-center justify-center gap-3 min-h-[200px]"
                   onDragOver={(e) => e.preventDefault()}
                   onDrop={(e) => handleDocumentoDrop(e, setDocumento1)}
                 >
@@ -1571,7 +1571,7 @@ const EditarCompeticao = () => {
 
                 {/* Documento 2 */}
                 <div
-                  className="relative rounded-[20px] bg-[#1A1A1A] p-8 flex flex-col items-center justify-center gap-3 min-h-[200px]"
+                  className="relative rounded-[20px] bg-[#1A1A1A] p-5 sm:p-8 flex flex-col items-center justify-center gap-3 min-h-[200px]"
                   onDragOver={(e) => e.preventDefault()}
                   onDrop={(e) => handleDocumentoDrop(e, setDocumento2)}
                 >
@@ -1623,7 +1623,7 @@ const EditarCompeticao = () => {
 
                 {/* Documento 3 */}
                 <div
-                  className="relative rounded-[20px] bg-[#1A1A1A] p-8 flex flex-col items-center justify-center gap-3 min-h-[200px]"
+                  className="relative rounded-[20px] bg-[#1A1A1A] p-5 sm:p-8 flex flex-col items-center justify-center gap-3 min-h-[200px]"
                   onDragOver={(e) => e.preventDefault()}
                   onDrop={(e) => handleDocumentoDrop(e, setDocumento3)}
                 >
@@ -1678,7 +1678,7 @@ const EditarCompeticao = () => {
 
           {/* Kit da corrida (peças físicas) */}
           <div className="mt-6">
-            <div className="rounded-[20px] border border-border/50 bg-[#2A2A2A] p-8">
+            <div className="rounded-[20px] border border-border/50 bg-[#2A2A2A] p-5 sm:p-8">
               <h2 className="text-lg font-semibold mb-2">Kit da corrida (peças físicas)</h2>
               <p className="text-sm text-muted-foreground mb-6">
                 Vale para as inscrições com kit desta corrida: a camiseta e a medalha que vão na caixa.
@@ -1689,7 +1689,7 @@ const EditarCompeticao = () => {
 
           {/* Badge da corrida (não é a medalha física) */}
           <div className="mt-6">
-            <div className="rounded-[20px] border border-border/50 bg-[#2A2A2A] p-8">
+            <div className="rounded-[20px] border border-border/50 bg-[#2A2A2A] p-5 sm:p-8">
               <h2 className="text-lg font-semibold mb-6">Badge da corrida (opcional)</h2>
               <MedalhaCorridaCampos
                 value={medalha}
@@ -1706,7 +1706,7 @@ const EditarCompeticao = () => {
 
           {/* Publicação no app */}
           <div className="mt-6">
-            <div className="rounded-[20px] border border-border/50 bg-[#2A2A2A] p-8">
+            <div className="rounded-[20px] border border-border/50 bg-[#2A2A2A] p-5 sm:p-8">
               <h2 className="text-lg font-semibold mb-2">Publicação no app</h2>
               <p className="text-sm text-muted-foreground mb-6">Quando a corrida aparece no app e no site de compra.</p>
               <PublicacaoAppCampos

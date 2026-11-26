@@ -44,8 +44,8 @@ export const PartnersActions = ({ search = "", onSearchChange, partners, filters
 
   return (
     <>
-      <div className="flex items-center justify-between gap-4 mb-6">
-        <div className="relative flex-1 max-w-md">
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between lg:gap-4 mb-6 lg:mb-6">
+        <div className="relative w-full lg:flex-1 lg:max-w-md">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Buscar parceiro..."
@@ -55,9 +55,10 @@ export const PartnersActions = ({ search = "", onSearchChange, partners, filters
           />
         </div>
         
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 lg:gap-3">
           <Button 
             variant="secondary" 
+            className="px-2.5 gap-1.5 sm:px-4 sm:gap-2"
             onClick={() => setIsFilterOpen(true)}
           >
             <SlidersHorizontal className="h-4 w-4" />
@@ -71,17 +72,18 @@ export const PartnersActions = ({ search = "", onSearchChange, partners, filters
           
           <Button 
             variant="secondary" 
+            className="px-2.5 gap-1.5 sm:px-4 sm:gap-2"
             onClick={() => setIsExportOpen(true)}
           >
             <Download className="h-4 w-4" />
             Exportar
           </Button>
           
-          <div className="w-px h-6 bg-border" />
+          <div className="hidden lg:block w-px h-6 bg-border" />
           
           <Button 
             variant="outline" 
-            className="border-primary text-primary hover:bg-primary hover:text-primary-foreground gap-2"
+            className="border-primary text-primary hover:bg-primary hover:text-primary-foreground px-2.5 gap-1.5 sm:px-4 sm:gap-2"
             onClick={() => setIsPushOpen(true)}
           >
             <Send className="h-4 w-4" />

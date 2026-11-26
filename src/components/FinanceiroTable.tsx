@@ -123,7 +123,7 @@ export const FinanceiroTable = () => {
         <h3 className="text-foreground font-semibold">Transações Financeiras</h3>
       </div>
       <div className="overflow-x-auto">
-        <table className="w-full">
+        <table className="w-full max-lg:[&_td]:whitespace-nowrap max-lg:[&_th]:whitespace-nowrap">
           <thead className="bg-table-header">
             <tr>
               <th className="px-6 py-3 text-left text-sm font-medium" style={{ color: '#E0E0E0' }}>Descrição</th>

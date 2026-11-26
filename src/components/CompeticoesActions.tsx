@@ -40,8 +40,8 @@ export const CompeticoesActions = () => {
 
   return (
     <>
-    <div className="flex items-center justify-between gap-4 mb-10">
-      <div className="relative flex-1 max-w-md">
+    <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between lg:gap-4 mb-6 lg:mb-10">
+      <div className="relative w-full lg:flex-1 lg:max-w-md">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
         <Input 
           placeholder="Buscar competição..." 
@@ -51,7 +51,7 @@ export const CompeticoesActions = () => {
         />
       </div>
       
-      <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-center gap-2 lg:gap-3">
         <Button 
           variant="secondary" 
           onClick={() => setFilterDialogOpen(true)}
@@ -68,7 +68,7 @@ export const CompeticoesActions = () => {
         </Button>
         {hasPermission("competicoes.add") && (
           <>
-            <span className="text-muted-foreground">|</span>
+            <span className="hidden lg:inline text-muted-foreground">|</span>
             <Button 
               className="bg-primary text-primary-foreground hover:bg-primary/90"
               onClick={() => navigate("/gestao-competicoes/cadastrar-competicao")}

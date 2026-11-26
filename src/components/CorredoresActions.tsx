@@ -43,8 +43,8 @@ export const CorredoresActions = () => {
 
   return (
     <>
-      <div className="flex items-center justify-between gap-4 mb-10">
-        <div className="relative flex-1 max-w-md">
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between lg:gap-4 mb-6 lg:mb-10">
+        <div className="relative w-full lg:flex-1 lg:max-w-md">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Buscar corredor..."
@@ -54,25 +54,27 @@ export const CorredoresActions = () => {
           />
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 lg:gap-3">
           <Button
             variant="secondary"
+            className="px-2.5 gap-1.5 sm:px-4 sm:gap-2"
             onClick={() => setFilterDialogOpen(true)}
           >
-            <SlidersHorizontal className="h-4 w-4 mr-2" />
+            <SlidersHorizontal className="h-4 w-4" />
             Filtrar
           </Button>
-          <span className="text-muted-foreground">|</span>
+          <span className="hidden lg:inline text-muted-foreground">|</span>
           <Button
             variant="secondary"
+            className="px-2.5 gap-1.5 sm:px-4 sm:gap-2"
             onClick={() => setExportDialogOpen(true)}
           >
-            <Download className="h-4 w-4 mr-2" />
+            <Download className="h-4 w-4" />
             Exportar
           </Button>
           <Button
             variant="outline"
-            className="border-primary text-primary hover:bg-primary hover:text-primary-foreground gap-2"
+            className="border-primary text-primary hover:bg-primary hover:text-primary-foreground px-2.5 gap-1.5 sm:px-4 sm:gap-2"
             onClick={() => setPushSheetOpen(true)}
           >
             <Send className="h-4 w-4" />

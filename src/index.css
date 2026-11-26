@@ -61,3 +61,14 @@ All colors MUST be HSL.
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
   }
 }
+
+@layer utilities {
+  /* Rolagem lateral sem barra visível (usada nas abas no celular) */
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+}

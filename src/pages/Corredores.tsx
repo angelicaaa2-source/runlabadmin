@@ -29,7 +29,7 @@ function CorredoresContent() {
   return (
     <div className="min-h-screen bg-background">
       <Header />
-      <main className="container mx-auto px-6 py-8 pt-24">
+      <main className="container mx-auto px-4 sm:px-6 py-8 pt-20 lg:pt-24">
         <CorredoresActions />
         <CorredoresTable
           data={data}

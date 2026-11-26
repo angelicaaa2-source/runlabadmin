@@ -318,7 +318,7 @@ export default function CadastrarCampeonatoForm() {
     return (
       <div className="min-h-screen bg-background">
         <Header />
-        <main className="container mx-auto max-w-[1044px] px-6 py-8 pt-24">
+        <main className="container mx-auto max-w-[1044px] px-4 sm:px-6 py-8 pt-20 lg:pt-24">
           <p className="text-muted-foreground">Carregando campeonato...</p>
         </main>
       </div>
@@ -329,7 +329,7 @@ export default function CadastrarCampeonatoForm() {
     return (
       <div className="min-h-screen bg-background">
         <Header />
-        <main className="container mx-auto max-w-[1044px] px-6 py-8 pt-24">
+        <main className="container mx-auto max-w-[1044px] px-4 sm:px-6 py-8 pt-20 lg:pt-24">
           <p className="text-destructive mb-4">{loadError}</p>
           <Button type="button" onClick={() => navigate("/gestao-competicoes")}>Voltar</Button>
         </main>
@@ -341,9 +341,9 @@ export default function CadastrarCampeonatoForm() {
     <div className="min-h-screen bg-background">
       <Header />
 
-      <main className="container mx-auto max-w-[1044px] px-6 py-8 pt-24">
+      <main className="container mx-auto max-w-[1044px] px-4 sm:px-6 py-8 pt-20 lg:pt-24">
         {/* ═══ Action Bar ═══ */}
-        <div className="flex items-center justify-between mb-8">
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-8">
           <Button
             variant="ghost"
             onClick={() => navigate("/gestao-competicoes")}
@@ -378,12 +378,12 @@ export default function CadastrarCampeonatoForm() {
         </div>
 
         {/* ═══ SECTION: Dados básicos ═══ */}
-        <div className="bg-[#262626] rounded-2xl p-8 mb-6">
+        <div className="bg-[#262626] rounded-2xl p-5 sm:p-8 mb-6">
           <h2 className="text-xl font-medium text-[#f5f5f5] mb-6">
             Dados básicos
           </h2>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {/* Nome do campeonato */}
             <div>
               <Label className="text-base font-medium text-[#f5f5f5] mb-2 block">
@@ -416,10 +416,10 @@ export default function CadastrarCampeonatoForm() {
         </div>
 
         {/* ═══ SECTION: Período ═══ */}
-        <div className="bg-[#262626] rounded-2xl p-8 mb-6">
+        <div className="bg-[#262626] rounded-2xl p-5 sm:p-8 mb-6">
           <h2 className="text-xl font-medium text-[#f5f5f5] mb-6">Período</h2>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {/* Início */}
             <div>
               <Label className="text-base font-medium text-[#f5f5f5] mb-2 block">
@@ -499,12 +499,12 @@ export default function CadastrarCampeonatoForm() {
         </div>
 
         {/* ═══ SECTION: Etapas e medalhistas ═══ */}
-        <div className="bg-[#262626] rounded-2xl p-8 mb-6">
+        <div className="bg-[#262626] rounded-2xl p-5 sm:p-8 mb-6">
           <h2 className="text-xl font-medium text-[#f5f5f5] mb-6">
             Etapas e medalhistas
           </h2>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {/* Quantidade de etapas */}
             <div>
               <Label className="text-base font-medium text-[#f5f5f5] mb-2 block">
@@ -552,7 +552,7 @@ export default function CadastrarCampeonatoForm() {
         </div>
 
         {/* ═══ SECTION: Ranking ═══ */}
-        <div className="bg-[#262626] rounded-2xl p-8 mb-6">
+        <div className="bg-[#262626] rounded-2xl p-5 sm:p-8 mb-6">
           <h2 className="text-xl font-medium text-[#f5f5f5] mb-6">Ranking</h2>
 
           <div>
@@ -583,7 +583,7 @@ export default function CadastrarCampeonatoForm() {
         </div>
 
         {/* ═══ SECTION: Competições ═══ */}
-        <div className="bg-[#262626] rounded-2xl p-8 mb-6">
+        <div className="bg-[#262626] rounded-2xl p-5 sm:p-8 mb-6">
           <h2 className="text-xl font-medium text-[#f5f5f5] mb-6">
             Competições
           </h2>
@@ -639,7 +639,7 @@ export default function CadastrarCampeonatoForm() {
         </div>
 
         {/* ═══ SECTION: Premiações ═══ */}
-        <div className="bg-[#262626] rounded-2xl p-8 mb-6">
+        <div className="bg-[#262626] rounded-2xl p-5 sm:p-8 mb-6">
           <div className="mb-6">
             <h2 className="text-xl font-medium text-[#f5f5f5] mb-2">
               Premiações
@@ -674,7 +674,7 @@ export default function CadastrarCampeonatoForm() {
                 className="flex items-center gap-0"
                 disabled={premiacoesDisabled}
               >
-                <div className="flex items-center w-[177px]">
+                <div className="flex items-center w-[120px] sm:w-[177px]">
                   <RadioGroupItem
                     value="sim"
                     id="awards-sim"
@@ -687,7 +687,7 @@ export default function CadastrarCampeonatoForm() {
                     Sim
                   </Label>
                 </div>
-                <div className="flex items-center w-[177px]">
+                <div className="flex items-center w-[120px] sm:w-[177px]">
                   <RadioGroupItem
                     value="nao"
                     id="awards-nao"

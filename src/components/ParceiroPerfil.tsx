@@ -71,7 +71,7 @@ export const ParceiroPerfil = ({ userId, modo = "pagina" }: ParceiroPerfilProps)
     <div>
       <div>
         {/* Back Button */}
-        <div className={`${pagina ? "mt-16" : ""} mb-6 flex items-center justify-between gap-4`}>
+        <div className={`${pagina ? "mt-2 lg:mt-16" : ""} mb-6 flex flex-wrap items-center justify-between gap-3 sm:gap-4`}>
           {pagina ? (
             <Link to="/parceiros">
               <Button
@@ -110,11 +110,11 @@ export const ParceiroPerfil = ({ userId, modo = "pagina" }: ParceiroPerfilProps)
         )}
 
         {/* Title */}
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
           <h1 className="text-2xl font-semibold text-foreground/40">Dados do parceiro</h1>
           <Button 
             onClick={() => setIsProfileDialogOpen(true)}
-            className="gap-2 border-0 hover:brightness-90 transition-all" 
+            className="self-start sm:self-auto gap-2 border-0 hover:brightness-90 transition-all" 
             style={{ backgroundColor: '#1A1A1A', color: '#CCF725' }}
           >
             Visualizar perfil de corredor
@@ -123,10 +123,10 @@ export const ParceiroPerfil = ({ userId, modo = "pagina" }: ParceiroPerfilProps)
 
         {/* Main Profile Card */}
         <Card className="mb-6 bg-[#2a2a2a] border-0">
-          <CardContent className="p-6">
-            <div className="flex items-start justify-between">
-              <div className="flex gap-4">
-                <div className="rounded-full bg-[#d4af37] overflow-hidden flex-shrink-0 w-[140px] h-[140px]">
+          <CardContent className="p-5 sm:p-6">
+            <div className="flex flex-col-reverse sm:flex-row items-start justify-between gap-3">
+              <div className="flex flex-col sm:flex-row gap-4 min-w-0">
+                <div className="rounded-full bg-[#d4af37] overflow-hidden flex-shrink-0 w-20 h-20 sm:w-[140px] sm:h-[140px]">
                   {parceiro.avatar ? (
                     <img src={parceiro.avatar} alt={parceiro.name} className="w-full h-full object-cover" />
                   ) : (
@@ -135,8 +135,8 @@ export const ParceiroPerfil = ({ userId, modo = "pagina" }: ParceiroPerfilProps)
                     </div>
                   )}
                 </div>
-                <div className="flex flex-col gap-2">
-                  <div className="flex items-center gap-2">
+                <div className="flex flex-col gap-2 min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
                     {parceiro.levelInfo ? (
                       <>
                         {parceiro.levelInfo.badge_image_url ? (
@@ -337,7 +337,7 @@ export const ParceiroPerfil = ({ userId, modo = "pagina" }: ParceiroPerfilProps)
           <h2 className="text-xl font-semibold text-foreground mb-4">Histórico de comissões geradas</h2>
           <Card className="bg-card border-0 rounded-lg overflow-hidden">
             <div className="overflow-x-auto">
-              <table className="w-full">
+              <table className="w-full max-lg:[&_td]:whitespace-nowrap max-lg:[&_th]:whitespace-nowrap">
                 <thead className="bg-table-header">
                   <tr>
                     <th className="px-6 py-3 text-left text-sm font-medium" style={{ color: '#E0E0E0' }}>Data</th>
@@ -399,7 +399,7 @@ export const ParceiroPerfil = ({ userId, modo = "pagina" }: ParceiroPerfilProps)
           <h2 className="text-xl font-semibold text-foreground mb-4">Histórico de repasses</h2>
           <Card className="bg-card border-0 rounded-lg overflow-hidden">
             <div className="overflow-x-auto">
-              <table className="w-full">
+              <table className="w-full max-lg:[&_td]:whitespace-nowrap max-lg:[&_th]:whitespace-nowrap">
                 <thead className="bg-table-header">
                   <tr>
                     <th className="px-6 py-3 text-left text-sm font-medium" style={{ color: '#E0E0E0' }}>Data</th>

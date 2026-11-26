@@ -131,7 +131,7 @@ const DetalhesTab = ({ competition }: { competition: CompetitionDetail }) => {
       </div>
 
       {/* Estatísticas */}
-      <div className="mb-8 bg-[#262626] rounded-lg p-6">
+      <div className="mb-8 bg-[#262626] rounded-lg p-4 sm:p-6">
         <h2 className="text-lg font-medium text-foreground mb-4">Estatísticas</h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <Card className="bg-[#1A1A1A] border-0">
@@ -164,7 +164,7 @@ const DetalhesTab = ({ competition }: { competition: CompetitionDetail }) => {
       </div>
 
       {/* Dados da competição */}
-      <div className="mb-8 bg-[#262626] rounded-lg p-6">
+      <div className="mb-8 bg-[#262626] rounded-lg p-4 sm:p-6">
         <h2 className="text-lg font-medium text-foreground mb-4">Dados da competição</h2>
         <Card className="bg-[#1A1A1A] border-0 mb-4">
           <CardContent className="p-6 space-y-4">
@@ -254,7 +254,7 @@ const DetalhesTab = ({ competition }: { competition: CompetitionDetail }) => {
 
       {/* Valores / Lotes */}
       {competition.lots.length > 0 && (
-        <div className="mb-8 bg-[#262626] rounded-lg p-6">
+        <div className="mb-8 bg-[#262626] rounded-lg p-4 sm:p-6">
           <h2 className="text-lg font-medium text-foreground mb-4">Valores</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {competition.lots.map((lot) => (
@@ -276,7 +276,7 @@ const DetalhesTab = ({ competition }: { competition: CompetitionDetail }) => {
 
       {/* Patrocinadores */}
       {competition.sponsors.length > 0 && (
-        <div className="mb-8 bg-[#262626] rounded-lg p-6">
+        <div className="mb-8 bg-[#262626] rounded-lg p-4 sm:p-6">
           <h2 className="text-lg font-medium text-foreground mb-4">Patrocinadores</h2>
           <Card className="bg-[#1A1A1A] border-0">
             <CardContent className="p-6">
@@ -305,7 +305,7 @@ const DetalhesTab = ({ competition }: { competition: CompetitionDetail }) => {
 
       {/* Documentos */}
       {competition.documents.length > 0 && (
-        <div className="mb-8 bg-[#262626] rounded-lg p-6">
+        <div className="mb-8 bg-[#262626] rounded-lg p-4 sm:p-6">
           <h2 className="text-lg font-medium text-foreground mb-4">Documentos</h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {competition.documents.map((doc) => (
@@ -380,14 +380,14 @@ const InscricoesTab = ({
   return (
     <>
       <div className="rounded-lg overflow-hidden border border-border mb-6">
-        <div className="px-6 py-4 bg-[#262626] flex items-center justify-between gap-4">
+        <div className="px-4 sm:px-6 py-4 bg-[#262626] flex flex-col md:flex-row md:items-center justify-between gap-3 md:gap-4">
           <h2 className="text-xl font-semibold text-foreground">Inscritos</h2>
-          <div className="flex items-center gap-4">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-4">
             <p data-contagem-inscritos className="text-sm text-muted-foreground flex items-center gap-2 whitespace-nowrap">
               {loading && <Loader2 className="h-3 w-3 animate-spin" />}
               {contagem}
             </p>
-            <div className="relative w-72">
+            <div className="relative w-full sm:w-72">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 data-busca-inscritos
@@ -619,7 +619,7 @@ const RankingTab = ({
           Auditoria de tentativas
         </Button>
         {source === "public" && (
-          <div className="flex items-center gap-2 ml-auto" data-filtro-genero>
+          <div className="flex flex-wrap items-center gap-2 sm:ml-auto" data-filtro-genero>
             <span className="text-sm text-muted-foreground">Gênero:</span>
             {GENEROS.map((g) => (
               <Button
@@ -640,7 +640,7 @@ const RankingTab = ({
       </div>
 
       <div className="rounded-lg overflow-hidden border border-border mb-6">
-        <div className="px-6 py-4 bg-[#262626] flex items-center justify-between">
+        <div className="px-4 sm:px-6 py-4 bg-[#262626] flex flex-col md:flex-row md:items-center justify-between gap-3">
           <div>
             <h2 className="text-xl font-semibold text-foreground">
               {source === "public" ? "Ranking público (app)" : "Auditoria de tentativas"}
@@ -654,8 +654,8 @@ const RankingTab = ({
                 : "Inclui todos que tentaram correr e mostra por que podem não aparecer no app."}
             </p>
           </div>
-          <div className="flex flex-col items-end gap-2">
-            <div className="relative w-72">
+          <div className="flex flex-col items-start md:items-end gap-2 w-full md:w-auto">
+            <div className="relative w-full md:w-72">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 placeholder="Buscar por nome ou e-mail"
@@ -808,7 +808,7 @@ const CompeticaoDetalhesContent = () => {
 
   if (loading) {
     return (
-      <main className="container mx-auto px-6 py-8 pt-24">
+      <main className="container mx-auto px-4 sm:px-6 py-8 pt-20 lg:pt-24">
         <LoadingState />
       </main>
     );
@@ -816,8 +816,8 @@ const CompeticaoDetalhesContent = () => {
 
   if (error || !competition) {
     return (
-      <main className="container mx-auto px-6 py-8 pt-24">
-        <div className="mt-16 mb-8">
+      <main className="container mx-auto px-4 sm:px-6 py-8 pt-20 lg:pt-24">
+        <div className="mt-2 lg:mt-16 mb-8">
           <Link to="/gestao-competicoes">
             <Button
               className="gap-2 border-0 hover:brightness-90 transition-all"
@@ -837,9 +837,9 @@ const CompeticaoDetalhesContent = () => {
   }
 
   return (
-    <main className="container mx-auto px-6 py-8 pt-24">
+    <main className="container mx-auto px-4 sm:px-6 py-8 pt-20 lg:pt-24">
       {/* Back Button and Action Buttons */}
-      <div className="mt-16 mb-8 flex items-center justify-between">
+      <div className="mt-2 lg:mt-16 mb-6 lg:mb-8 flex flex-wrap items-center justify-between gap-3">
         <Link to="/gestao-competicoes">
           <Button
             className="gap-2 border-0 hover:brightness-90 transition-all"
@@ -850,7 +850,7 @@ const CompeticaoDetalhesContent = () => {
           </Button>
         </Link>
 
-        <div className="flex gap-3">
+        <div className="flex flex-wrap gap-2 sm:gap-3">
           {activeTab === "inscricoes" ? (
             <>
               <Button

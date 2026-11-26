@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, ReactNode } from "react";
+import { scrollTabIntoView } from "@/lib/scrollTabIntoView";
 
 type TabType = "competitions" | "championships";
 
@@ -31,11 +32,11 @@ export const GestaoCompeticoesTabs = () => {
   const { activeTab, setActiveTab } = useGestaoCompeticoesTab();
 
   return (
-    <div className="mb-8">
-      <div className="flex items-center border-b border-border">
+    <div className="mb-6 sm:mb-8">
+      <div className="flex items-center border-b border-border overflow-x-auto no-scrollbar">
         <button
-          onClick={() => setActiveTab("competitions")}
-          className={`flex-1 pb-4 text-lg font-medium transition-colors relative ${
+          onClick={(e) => { setActiveTab("competitions"); scrollTabIntoView(e); }}
+          className={`flex-1 shrink-0 whitespace-nowrap px-3 pb-3 sm:pb-4 text-base sm:text-lg font-medium transition-colors relative ${
             activeTab === "competitions"
               ? "text-primary"
               : "text-muted-foreground hover:text-foreground"
@@ -48,8 +49,8 @@ export const GestaoCompeticoesTabs = () => {
         </button>
         
         <button
-          onClick={() => setActiveTab("championships")}
-          className={`flex-1 pb-4 text-lg font-medium transition-colors relative ${
+          onClick={(e) => { setActiveTab("championships"); scrollTabIntoView(e); }}
+          className={`flex-1 shrink-0 whitespace-nowrap px-3 pb-3 sm:pb-4 text-base sm:text-lg font-medium transition-colors relative ${
             activeTab === "championships"
               ? "text-primary"
               : "text-muted-foreground hover:text-foreground"

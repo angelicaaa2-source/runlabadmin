@@ -467,9 +467,9 @@ const CadastrarCampeonato = () => {
     <div className="min-h-screen bg-background">
       <Header />
       
-      <main className="container mx-auto px-6 py-8 pt-24">
+      <main className="container mx-auto px-4 sm:px-6 py-8 pt-20 lg:pt-24">
         {/* Action Bar */}
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
           <Button
             variant="ghost"
             onClick={() => navigate("/gestao-competicoes")}
@@ -491,7 +491,7 @@ const CadastrarCampeonato = () => {
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
           {/* Dados básicos */}
-          <div className="bg-card rounded-lg border border-border p-6">
+          <div className="bg-card rounded-lg border border-border p-4 sm:p-6">
             <h2 className="text-lg font-semibold text-foreground mb-6">Dados básicos</h2>
             
             <div className="space-y-6">
@@ -528,7 +528,7 @@ const CadastrarCampeonato = () => {
               </div>
 
               {/* Modalidade e Formato */}
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="modalidade" className="text-foreground">
                     Modalidade
@@ -583,12 +583,12 @@ const CadastrarCampeonato = () => {
               )}
 
               {/* Banners */}
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {/* Banner da competição */}
-                <div className="bg-[#1A1A1A] p-6 rounded-lg">
+                <div className="bg-[#1A1A1A] p-4 sm:p-6 rounded-lg">
                   <Label className="text-foreground">Banner da competição</Label>
                   <div
-                    className="mt-4 bg-[#262626] border-2 border-dashed border-[#CCF725] rounded-lg p-8 text-center hover:border-[#CCF725]/80 transition-colors cursor-pointer"
+                    className="mt-4 bg-[#262626] border-2 border-dashed border-[#CCF725] rounded-lg p-5 sm:p-8 text-center hover:border-[#CCF725]/80 transition-colors cursor-pointer"
                     onDragOver={(e) => { e.preventDefault(); e.currentTarget.setAttribute("data-drag", "true"); }}
                     onDragLeave={(e) => { e.preventDefault(); e.currentTarget.removeAttribute("data-drag"); }}
                     onDrop={(e) => {
@@ -629,12 +629,12 @@ const CadastrarCampeonato = () => {
                 </div>
 
                 {/* Mini banner */}
-                <div className="bg-[#1A1A1A] p-6 rounded-lg">
+                <div className="bg-[#1A1A1A] p-4 sm:p-6 rounded-lg">
                   <Label className="text-foreground">
                     Mini banner <span className="text-muted-foreground">(opcional)</span>
                   </Label>
                   <div
-                    className="mt-4 bg-[#262626] border-2 border-dashed border-[#CCF725] rounded-lg p-8 text-center hover:border-[#CCF725]/80 transition-colors cursor-pointer"
+                    className="mt-4 bg-[#262626] border-2 border-dashed border-[#CCF725] rounded-lg p-5 sm:p-8 text-center hover:border-[#CCF725]/80 transition-colors cursor-pointer"
                     onDragOver={(e) => { e.preventDefault(); e.currentTarget.setAttribute("data-drag", "true"); }}
                     onDragLeave={(e) => { e.preventDefault(); e.currentTarget.removeAttribute("data-drag"); }}
                     onDrop={(e) => {
@@ -750,17 +750,17 @@ const CadastrarCampeonato = () => {
           </div>
 
           {/* Período */}
-          <div className="bg-card rounded-lg border border-border p-6">
+          <div className="bg-card rounded-lg border border-border p-4 sm:p-6">
             <h2 className="text-lg font-semibold text-foreground mb-6">Período</h2>
             
             <div className="space-y-6">
               {/* Período de inscrições */}
               <div>
-                <div className="flex items-center justify-between mb-2">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 mb-2">
                   <Label className="text-foreground">Período de inscrições</Label>
                   <p className="text-sm text-red-500">Inscrições encerram às 23h59 do dia final.</p>
                 </div>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <Popover>
                       <PopoverTrigger asChild>
@@ -819,7 +819,7 @@ const CadastrarCampeonato = () => {
               {/* Período da competição */}
               <div>
                 <Label className="text-foreground mb-2 block">Período da competição</Label>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <Popover>
                       <PopoverTrigger asChild>
@@ -878,7 +878,7 @@ const CadastrarCampeonato = () => {
           </div>
 
           {/* Regras */}
-          <div className="bg-card rounded-lg border border-border p-6">
+          <div className="bg-card rounded-lg border border-border p-4 sm:p-6">
             <h2 className="text-lg font-semibold text-foreground mb-6">Regras</h2>
             
             <div className="space-y-6">
@@ -927,7 +927,7 @@ const CadastrarCampeonato = () => {
           </div>
 
           {/* Premiações */}
-          <div className="bg-card rounded-lg border border-border p-6">
+          <div className="bg-card rounded-lg border border-border p-4 sm:p-6">
             <h2 className="text-lg font-semibold text-foreground mb-6">Premiações</h2>
             
             <div className="space-y-6">
@@ -1004,7 +1004,7 @@ const CadastrarCampeonato = () => {
           </div>
 
           {/* Inscrição e checkout */}
-          <div className="bg-card rounded-lg border border-border p-6">
+          <div className="bg-card rounded-lg border border-border p-4 sm:p-6">
             <h2 className="text-lg font-semibold text-foreground mb-6">Inscrição e checkout</h2>
             
             <div className="space-y-6">
@@ -1144,12 +1144,12 @@ const CadastrarCampeonato = () => {
           </div>
 
           {/* Documentos */}
-          <div className="space-y-6 bg-card border border-border/50 rounded-2xl p-8">
+          <div className="space-y-6 bg-card border border-border/50 rounded-2xl p-5 sm:p-8">
             <h2 className="text-lg font-semibold text-foreground mb-6">Documentos (opcional)</h2>
             <p className="text-sm text-muted-foreground -mt-4 mb-2">
               Envie até 3 documentos (regulamento, edital, etc). Eles ficam disponíveis para download no app.
             </p>
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               {[
                 { file: documento1, setter: setDocumento1, key: "documento1" },
                 { file: documento2, setter: setDocumento2, key: "documento2" },
@@ -1157,7 +1157,7 @@ const CadastrarCampeonato = () => {
               ].map(({ file, setter, key }) => (
                 <div
                   key={key}
-                  className="relative rounded-[20px] bg-[#1A1A1A] p-8 flex flex-col items-center justify-center gap-3 min-h-[200px]"
+                  className="relative rounded-[20px] bg-[#1A1A1A] p-5 sm:p-8 flex flex-col items-center justify-center gap-3 min-h-[200px]"
                   onDragOver={(e) => e.preventDefault()}
                   onDrop={(e) => handleDocumentoDrop(e, setter)}
                 >
@@ -1205,7 +1205,7 @@ const CadastrarCampeonato = () => {
           </div>
 
           {/* Kit da corrida (peças físicas) */}
-          <div className="space-y-6 bg-card border border-border/50 rounded-2xl p-8">
+          <div className="space-y-6 bg-card border border-border/50 rounded-2xl p-5 sm:p-8">
             <h2 className="text-lg font-semibold text-foreground mb-2">Kit da corrida (peças físicas)</h2>
             <p className="text-sm text-muted-foreground -mt-1 mb-2">
               Vale para as inscrições com kit desta corrida: a camiseta e a medalha que vão na caixa.
@@ -1214,19 +1214,19 @@ const CadastrarCampeonato = () => {
           </div>
 
           {/* Patrocinadores */}
-          <div className="space-y-6 bg-card border border-border/50 rounded-2xl p-8">
+          <div className="space-y-6 bg-card border border-border/50 rounded-2xl p-5 sm:p-8">
             <h2 className="text-lg font-semibold text-foreground mb-6">Patrocinadores (opcional)</h2>
             <PatrocinadoresCampos itens={patrocinadores} onChange={setPatrocinadores} disabled={isSubmitting} />
           </div>
 
           {/* Badge da corrida (não é a medalha física) */}
-          <div className="space-y-6 bg-card border border-border/50 rounded-2xl p-8">
+          <div className="space-y-6 bg-card border border-border/50 rounded-2xl p-5 sm:p-8">
             <h2 className="text-lg font-semibold text-foreground mb-6">Badge da corrida (opcional)</h2>
             <MedalhaCorridaCampos value={medalha} onChange={setMedalha} tituloCorrida={watch("nome") ?? ""} disabled={isSubmitting} />
           </div>
 
           {/* Publicação no app */}
-          <div className="space-y-6 bg-card border border-border/50 rounded-2xl p-8">
+          <div className="space-y-6 bg-card border border-border/50 rounded-2xl p-5 sm:p-8">
             <h2 className="text-lg font-semibold text-foreground mb-6">Publicação no app</h2>
             <p className="text-sm text-muted-foreground -mt-4 mb-2">
               Quando a corrida aparece no app e no site de compra.

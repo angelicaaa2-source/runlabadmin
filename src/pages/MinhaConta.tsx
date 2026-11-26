@@ -609,7 +609,7 @@ const MinhaConta = () => {
     <div className="min-h-screen bg-background">
       <Header />
       
-      <main className="container mx-auto px-6 py-8 pt-24">
+      <main className="container mx-auto px-4 sm:px-6 py-8 pt-20 lg:pt-24">
         {activeTab === "dados-basicos" && (
           <div className="flex justify-end mb-6">
             <Button 
@@ -686,10 +686,10 @@ const MinhaConta = () => {
           <TabsContent value="dados-basicos" className="mt-8">
             <div className="space-y-8">
               {/* Bloco de Dados Básicos */}
-              <div className="bg-card border border-border rounded-lg p-8 space-y-6">
+              <div className="bg-card border border-border rounded-lg p-5 sm:p-8 space-y-6">
                 <h2 className="text-xl font-semibold">Dados básicos</h2>
                 
-                <div className="flex items-start gap-6">
+                <div className="flex flex-col sm:flex-row items-start gap-6">
                   <div className="relative flex-shrink-0">
                     <Avatar className="h-24 w-24">
                       <AvatarImage src={avatarUrl} alt={displayName} referrerPolicy="no-referrer" />
@@ -720,7 +720,7 @@ const MinhaConta = () => {
                     )}
                   </div>
 
-                  <div className="flex-1 space-y-6">
+                  <div className="flex-1 w-full min-w-0 space-y-6">
                     {isEditing ? (
                       <>
                         <div>
@@ -735,7 +735,7 @@ const MinhaConta = () => {
                           </div>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                           <div>
                             <Label className="text-sm text-foreground mb-2 block">E-mail ou telefone</Label>
                             <div className="relative">
@@ -813,7 +813,7 @@ const MinhaConta = () => {
               </div>
 
               {isEditing && (
-                <div className="bg-card border border-border rounded-lg p-8 space-y-6">
+                <div className="bg-card border border-border rounded-lg p-5 sm:p-8 space-y-6">
                   <h2 className="text-xl font-semibold mb-6">Segurança da conta</h2>
                   
                   <div className="space-y-6">
@@ -942,7 +942,7 @@ const MinhaConta = () => {
             <div className="space-y-8">
               <h2 className="text-2xl font-semibold">Acessos</h2>
               
-              <div className={selectedUserId ? "grid grid-cols-2 gap-6" : ""}>
+              <div className={selectedUserId ? "grid grid-cols-1 lg:grid-cols-2 gap-6" : ""}>
                 <div className="space-y-4">
                   {adminListLoading ? (
                     <div className="text-muted-foreground py-4">Carregando...</div>

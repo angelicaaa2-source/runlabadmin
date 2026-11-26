@@ -377,7 +377,7 @@ const Cupons = () => {
     <div className="min-h-screen bg-background">
       <Header />
 
-      <main className="container mx-auto px-6 py-8 pt-24 space-y-6">
+      <main className="container mx-auto px-4 sm:px-6 py-8 pt-20 lg:pt-24 space-y-6">
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
             <h1 className="text-2xl font-semibold text-foreground">Cupons e códigos</h1>
@@ -424,12 +424,12 @@ const Cupons = () => {
         ) : (
         <>
         <div className="flex flex-wrap items-center gap-3">
-          <div className="flex rounded-md bg-[#262626] p-1">
+          <div className="flex w-full sm:w-auto rounded-md bg-[#262626] p-1">
             {FILTROS.map((item) => (
               <button
                 key={item.valor}
                 onClick={() => setFiltro(item.valor)}
-                className={`px-3 py-1.5 text-sm rounded transition-colors ${
+                className={`flex-1 sm:flex-none whitespace-nowrap px-2 sm:px-3 py-1.5 text-xs sm:text-sm rounded transition-colors ${
                   filtro === item.valor ? "bg-[#CCF725] text-[#1A1A1A] font-medium" : "text-muted-foreground hover:text-foreground"
                 }`}
               >
@@ -437,13 +437,13 @@ const Cupons = () => {
               </button>
             ))}
           </div>
-          <div className="relative">
+          <div className="relative w-full sm:w-auto">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               value={busca}
               onChange={(e) => setBusca(e.target.value)}
               placeholder="Buscar código ou descrição"
-              className="pl-9 w-72 bg-[#262626] border-0 text-foreground"
+              className="pl-9 w-full sm:w-72 bg-[#262626] border-0 text-foreground"
             />
           </div>
         </div>

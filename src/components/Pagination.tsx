@@ -28,7 +28,7 @@ export const Pagination = ({ total = 0, page = 1, pageSize = 10, onPageChange }:
 
   return (
     <div className="flex items-center justify-center mt-6">
-      <div className="flex items-center gap-4 bg-[#1A1A1A] px-6 py-3 rounded-lg">
+      <div className="flex items-center gap-1 sm:gap-4 bg-[#1A1A1A] px-2 sm:px-6 py-2 sm:py-3 rounded-lg">
         <Button
           variant="ghost"
           size="icon"
@@ -49,7 +49,7 @@ export const Pagination = ({ total = 0, page = 1, pageSize = 10, onPageChange }:
           <ChevronLeft className="h-5 w-5" />
         </Button>
 
-        <span className="text-sm text-muted-foreground px-4 min-w-[140px] text-center">
+        <span className="text-sm text-muted-foreground px-2 sm:px-4 min-w-[110px] sm:min-w-[140px] text-center whitespace-nowrap">
           {safeTotal === 0 ? "0 de 0" : `${startItem} a ${endItem} de ${safeTotal}`}
         </span>
 
