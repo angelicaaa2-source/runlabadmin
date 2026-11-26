@@ -22,6 +22,7 @@ import { formatCurrency } from "@/lib/formatCurrency";
 import { useFinanceiroOverview } from "@/hooks/useFinanceiroOverview";
 import { PendingWithdrawalsBanner } from "@/components/PendingWithdrawalsBanner";
 import { SolicitacoesSaqueDialog } from "@/components/SolicitacoesSaqueDialog";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 const MetricCard = ({
   title,
@@ -126,6 +127,8 @@ export const FinanceiroOverview = () => {
   const [currentMonth, setCurrentMonth] = useState(currentMonthDefault);
   const [isPopoverOpen, setIsPopoverOpen] = useState(false);
   const [solicitacoesOpen, setSolicitacoesOpen] = useState(false);
+  // No celular a legenda das pizzas vai pra baixo, senão a pizza fica cortada.
+  const isMobile = useIsMobile();
 
   const { data, isLoading, isError, error } = useFinanceiroOverview(
     currentYear,
@@ -215,36 +218,39 @@ export const FinanceiroOverview = () => {
           <Loader2 className="h-10 w-10 animate-spin text-primary" />
         </div>
       )}
-      {/* Seletor de período (ano + mês) */}
-      <div className="flex flex-wrap items-center justify-end gap-3 mb-6">
-        <div className="flex items-center gap-2">
+      {/* Seletor de período (ano + mês): no celular, os dois na mesma linha */}
+      <div className="flex items-center justify-between sm:justify-end gap-2 sm:gap-3 mb-6">
+        <div className="flex shrink-0 items-center gap-1 sm:gap-2">
           <Button
             type="button"
             variant="outline"
             size="icon"
+            className="h-9 w-9 sm:h-10 sm:w-10"
             onClick={handlePrevYear}
             aria-label="Ano anterior"
           >
             <ChevronLeft className="h-5 w-5" />
           </Button>
-          <span className="text-lg font-medium text-foreground min-w-[4rem] text-center">
+          <span className="text-base sm:text-lg font-medium text-foreground min-w-[2.75rem] sm:min-w-[4rem] text-center">
             {currentYear}
           </span>
           <Button
             type="button"
             variant="outline"
             size="icon"
+            className="h-9 w-9 sm:h-10 sm:w-10"
             onClick={handleNextYear}
             aria-label="Próximo ano"
           >
             <ChevronRight className="h-5 w-5" />
           </Button>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex min-w-0 flex-1 sm:flex-none items-center gap-1 sm:gap-2">
           <Button
             type="button"
             variant="secondary"
             size="icon"
+            className="h-9 w-9 sm:h-10 sm:w-10"
             onClick={handlePrevMonth}
             aria-label="Mês anterior"
           >
@@ -255,12 +261,12 @@ export const FinanceiroOverview = () => {
               <Button
                 type="button"
                 variant="secondary"
-                className="px-8 min-w-[140px]"
+                className="h-9 sm:h-10 min-w-0 flex-1 sm:flex-none px-2 sm:px-8 sm:min-w-[140px]"
                 aria-expanded={isPopoverOpen}
                 aria-haspopup="listbox"
                 aria-label={`Mês selecionado: ${MONTHS[currentMonth]}`}
               >
-                <span className="text-lg font-medium text-primary">
+                <span className="truncate text-base sm:text-lg font-medium text-primary">
                   {MONTHS[currentMonth]}
                 </span>
               </Button>
@@ -295,6 +301,7 @@ export const FinanceiroOverview = () => {
             type="button"
             variant="secondary"
             size="icon"
+            className="h-9 w-9 sm:h-10 sm:w-10"
             onClick={handleNextMonth}
             aria-label="Próximo mês"
           >
@@ -338,13 +345,13 @@ export const FinanceiroOverview = () => {
           <h3 className="text-sm text-muted-foreground mb-4">
             Receita por tipo de recebimento
           </h3>
-          <ResponsiveContainer width="100%" height={250}>
+          <ResponsiveContainer width="100%" height={isMobile ? 320 : 250}>
             <PieChart>
               <Pie
                 data={receiptData}
                 cx="50%"
                 cy="50%"
-                outerRadius={90}
+                outerRadius={isMobile ? 80 : 90}
                 paddingAngle={0}
                 dataKey="value"
                 label={renderPercentLabel}
@@ -358,8 +365,9 @@ export const FinanceiroOverview = () => {
               <Legend
                 content={<CustomLegend />}
                 layout="vertical"
-                align="right"
-                verticalAlign="middle"
+                align={isMobile ? "center" : "right"}
+                verticalAlign={isMobile ? "bottom" : "middle"}
+                wrapperStyle={isMobile ? { paddingTop: 12 } : undefined}
               />
             </PieChart>
           </ResponsiveContainer>
@@ -369,13 +377,13 @@ export const FinanceiroOverview = () => {
           <h3 className="text-sm text-muted-foreground mb-4">
             Comissão por tipo de parceiro
           </h3>
-          <ResponsiveContainer width="100%" height={250}>
+          <ResponsiveContainer width="100%" height={isMobile ? 320 : 250}>
             <PieChart>
               <Pie
                 data={partnerData}
                 cx="50%"
                 cy="50%"
-                outerRadius={90}
+                outerRadius={isMobile ? 80 : 90}
                 paddingAngle={0}
                 dataKey="value"
                 label={renderPieLabel}
@@ -389,8 +397,9 @@ export const FinanceiroOverview = () => {
               <Legend
                 content={<CustomLegend />}
                 layout="vertical"
-                align="right"
-                verticalAlign="middle"
+                align={isMobile ? "center" : "right"}
+                verticalAlign={isMobile ? "bottom" : "middle"}
+                wrapperStyle={isMobile ? { paddingTop: 12 } : undefined}
               />
             </PieChart>
           </ResponsiveContainer>

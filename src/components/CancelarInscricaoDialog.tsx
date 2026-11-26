@@ -115,7 +115,7 @@ export const CancelarInscricaoDialog = ({ open, registrationId, userName, onClos
 
   return (
     <Dialog open={open} onOpenChange={(next) => !next && handleClose()}>
-      <DialogContent data-cancelar-inscricao className="bg-[#2a2a2a] border-0 sm:max-w-[560px] p-8 max-h-[90vh] overflow-y-auto">
+      <DialogContent data-cancelar-inscricao className="bg-[#2a2a2a] border-0 sm:max-w-[560px] p-5 sm:p-8 max-h-[90vh] overflow-y-auto">
         <button
           onClick={handleClose}
           disabled={saving}

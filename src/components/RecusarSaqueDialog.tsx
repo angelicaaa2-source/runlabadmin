@@ -47,7 +47,7 @@ export const RecusarSaqueDialog = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="bg-[#262626] border-0 sm:max-w-[500px] rounded-2xl p-8 gap-0">
+      <DialogContent className="bg-[#262626] border-0 sm:max-w-[500px] rounded-2xl p-5 sm:p-8 gap-0">
         <div className="flex flex-col gap-8">
           <div className="pb-4 border-b border-[#4D4D4D]">
             <DialogHeader>

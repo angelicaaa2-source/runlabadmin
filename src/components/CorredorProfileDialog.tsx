@@ -25,7 +25,7 @@ export const CorredorProfileDialog = ({ open, onOpenChange, corredor }: Corredor
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="bg-[#2a2a2a] border-0 sm:max-w-[500px] p-8">
+      <DialogContent className="bg-[#2a2a2a] border-0 sm:max-w-[500px] p-5 sm:p-8">
         {/* Close Button */}
         <button
           onClick={() => onOpenChange(false)}

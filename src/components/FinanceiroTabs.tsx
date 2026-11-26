@@ -1,4 +1,5 @@
 import { useState, createContext, useContext, ReactNode } from "react";
+import { scrollTabIntoView } from "@/lib/scrollTabIntoView";
 import { usePendingWithdrawalsCount } from "@/hooks/useRepasses";
 
 type TabType = "overview" | "competitions" | "receipts" | "transfers";
@@ -35,13 +36,13 @@ export const FinanceiroTabs = () => {
   const { data: pendingCount = 0 } = usePendingWithdrawalsCount();
 
   return (
-    <div className="mb-8">
-      <div className="flex items-center border-b border-border">
+    <div className="mb-6 sm:mb-8">
+      <div className="flex items-center border-b border-border overflow-x-auto no-scrollbar">
         {TAB_ITEMS.map((tab) => (
           <button
             key={tab.key}
-            onClick={() => setActiveTab(tab.key)}
-            className={`flex-1 pb-4 text-lg font-medium transition-colors relative ${
+            onClick={(e) => { setActiveTab(tab.key); scrollTabIntoView(e); }}
+            className={`flex-1 shrink-0 whitespace-nowrap px-3 pb-3 sm:pb-4 text-base sm:text-lg font-medium transition-colors relative ${
               activeTab === tab.key
                 ? "text-primary"
                 : "text-muted-foreground hover:text-foreground"

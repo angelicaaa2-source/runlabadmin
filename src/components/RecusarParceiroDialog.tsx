@@ -25,7 +25,7 @@ export const RecusarParceiroDialog = ({
     }
   };
   return <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="bg-[#2a2a2a] border-0 sm:max-w-[600px] p-8">
+      <DialogContent className="bg-[#2a2a2a] border-0 sm:max-w-[600px] p-5 sm:p-8">
         {/* Close Button */}
         <button onClick={() => onOpenChange(false)} className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none">
           <X className="h-4 w-4 text-muted-foreground" />

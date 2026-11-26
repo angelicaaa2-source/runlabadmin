@@ -100,7 +100,7 @@ export const PublicacaoAppDialog = ({
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && !saving && onClose()}>
-      <DialogContent className="bg-[#2a2a2a] border-0 sm:max-w-[520px] p-8 max-h-[90vh] overflow-y-auto">
+      <DialogContent className="bg-[#2a2a2a] border-0 sm:max-w-[520px] p-5 sm:p-8 max-h-[90vh] overflow-y-auto">
         <button
           type="button"
           onClick={onClose}

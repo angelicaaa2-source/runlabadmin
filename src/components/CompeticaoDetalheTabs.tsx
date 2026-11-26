@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, ReactNode } from "react";
+import { scrollTabIntoView } from "@/lib/scrollTabIntoView";
 
 type TabType = "detalhes" | "inscricoes" | "ranking";
 
@@ -31,11 +32,11 @@ export const CompeticaoDetalheTabs = () => {
   const { activeTab, setActiveTab } = useCompeticaoDetalheTab();
 
   return (
-    <div className="mb-8">
-      <div className="flex items-center border-b border-border">
+    <div className="mb-6 sm:mb-8">
+      <div className="flex items-center border-b border-border overflow-x-auto no-scrollbar">
         <button
-          onClick={() => setActiveTab("detalhes")}
-          className={`flex-1 pb-4 text-lg font-medium transition-colors relative ${
+          onClick={(e) => { setActiveTab("detalhes"); scrollTabIntoView(e); }}
+          className={`flex-1 shrink-0 whitespace-nowrap px-3 pb-3 sm:pb-4 text-base sm:text-lg font-medium transition-colors relative ${
             activeTab === "detalhes"
               ? "text-primary"
               : "text-muted-foreground hover:text-foreground"
@@ -48,8 +49,8 @@ export const CompeticaoDetalheTabs = () => {
         </button>
         
         <button
-          onClick={() => setActiveTab("inscricoes")}
-          className={`flex-1 pb-4 text-lg font-medium transition-colors relative ${
+          onClick={(e) => { setActiveTab("inscricoes"); scrollTabIntoView(e); }}
+          className={`flex-1 shrink-0 whitespace-nowrap px-3 pb-3 sm:pb-4 text-base sm:text-lg font-medium transition-colors relative ${
             activeTab === "inscricoes"
               ? "text-primary"
               : "text-muted-foreground hover:text-foreground"
@@ -62,8 +63,8 @@ export const CompeticaoDetalheTabs = () => {
         </button>
 
         <button
-          onClick={() => setActiveTab("ranking")}
-          className={`flex-1 pb-4 text-lg font-medium transition-colors relative ${
+          onClick={(e) => { setActiveTab("ranking"); scrollTabIntoView(e); }}
+          className={`flex-1 shrink-0 whitespace-nowrap px-3 pb-3 sm:pb-4 text-base sm:text-lg font-medium transition-colors relative ${
             activeTab === "ranking"
               ? "text-primary"
               : "text-muted-foreground hover:text-foreground"

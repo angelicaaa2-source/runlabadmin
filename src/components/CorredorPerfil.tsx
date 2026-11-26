@@ -92,14 +92,14 @@ export const CorredorPerfil = ({ userId, modo = "pagina" }: CorredorPerfilProps)
     <>
       {modo === "pagina" ? (
         <>
-          <div className="mt-16 mb-6 flex items-center justify-between gap-4">
+          <div className="mt-2 lg:mt-16 mb-6 flex flex-wrap items-center justify-between gap-3 sm:gap-4">
             <Link to="/corredores">
               <Button className="gap-2 border-0 hover:brightness-90 transition-all" style={{ backgroundColor: "#1A1A1A", color: "#CCF725" }}>
                 <ChevronLeft className="w-5 h-5" />
                 Voltar
               </Button>
             </Link>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <LancarCorridaButton userId={corredor.id} userName={corredor.name} onCreated={refetch} />
               <ExcluirContaButton userId={corredor.id} userName={corredor.name} redirectTo="/corredores" />
             </div>
@@ -114,7 +114,7 @@ export const CorredorPerfil = ({ userId, modo = "pagina" }: CorredorPerfilProps)
           </div>
         </>
       ) : (
-        <div className="mb-6 flex items-center justify-between gap-4">
+        <div className="mb-6 flex flex-wrap items-center justify-between gap-3 sm:gap-4">
           <Link to={`/corredores/${corredor.id}`}>
             <Button data-abrir-perfil-completo className="gap-2 border-0 hover:brightness-90 transition-all" style={{ backgroundColor: "#1A1A1A", color: "#CCF725" }}>
               <ExternalLink className="w-4 h-4" />
@@ -128,10 +128,10 @@ export const CorredorPerfil = ({ userId, modo = "pagina" }: CorredorPerfilProps)
       <h1 className="text-2xl font-semibold text-foreground/40 mb-6">Dados do usuário</h1>
 
       <Card className="mb-6 bg-[#2a2a2a] border-0">
-        <CardContent className="p-6">
-          <div className="flex items-start justify-between">
-            <div className="flex gap-4">
-              <div className="rounded-full bg-[#d4af37] overflow-hidden flex-shrink-0" style={{ width: "140px", height: "140px" }}>
+        <CardContent className="p-5 sm:p-6">
+          <div className="flex flex-col-reverse sm:flex-row items-start justify-between gap-3">
+            <div className="flex flex-col sm:flex-row gap-4 min-w-0">
+              <div className="rounded-full bg-[#d4af37] overflow-hidden flex-shrink-0 w-20 h-20 sm:w-[140px] sm:h-[140px]">
                 {corredor.avatar ? (
                   <img src={corredor.avatar} alt={corredor.name} className="w-full h-full object-cover" />
                 ) : (
@@ -140,8 +140,8 @@ export const CorredorPerfil = ({ userId, modo = "pagina" }: CorredorPerfilProps)
                   </div>
                 )}
               </div>
-              <div className="flex flex-col gap-2">
-                <div className="flex items-center gap-2">
+              <div className="flex flex-col gap-2 min-w-0">
+                <div className="flex flex-wrap items-center gap-2">
                   <img
                     src={corredor.tier.imageUrl ?? nivelIcon}
                     alt={corredor.tier.name}
@@ -155,7 +155,7 @@ export const CorredorPerfil = ({ userId, modo = "pagina" }: CorredorPerfilProps)
                   </span>
                 </div>
                 <h2 className="text-xl font-semibold text-foreground">{corredor.name}</h2>
-                <p className="text-sm text-muted-foreground">
+                <p className="text-sm text-muted-foreground break-all">
                   <span className="text-xs">E-mail: </span>
                   {corredor.email}
                 </p>
@@ -234,9 +234,9 @@ export const CorredorPerfil = ({ userId, modo = "pagina" }: CorredorPerfilProps)
 
       {/* Saldo de Créditos */}
       <div className="mb-6">
-        <div className="flex items-center justify-between gap-4 mb-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 mb-4">
           <h2 className="text-xl font-semibold text-foreground">Saldo de créditos</h2>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <RemoverCreditosButton
               userId={corredor.id}
               userName={corredor.name}
@@ -285,7 +285,7 @@ export const CorredorPerfil = ({ userId, modo = "pagina" }: CorredorPerfilProps)
         <h2 className="text-xl font-semibold text-foreground mb-4">Histórico de créditos</h2>
         <Card className="bg-card border-0 rounded-lg overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full">
+            <table className="w-full max-lg:[&_td]:whitespace-nowrap max-lg:[&_th]:whitespace-nowrap">
               <thead className="bg-table-header">
                 <tr>
                   <th className="px-6 py-3 text-left text-sm font-medium" style={{ color: "#E0E0E0" }}>Data</th>
@@ -331,7 +331,7 @@ export const CorredorPerfil = ({ userId, modo = "pagina" }: CorredorPerfilProps)
         <h2 className="text-xl font-semibold text-foreground mb-4">Histórico de compras</h2>
         <Card className="bg-card border-0 rounded-lg overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full">
+            <table className="w-full max-lg:[&_td]:whitespace-nowrap max-lg:[&_th]:whitespace-nowrap">
               <thead className="bg-table-header">
                 <tr>
                   <th className="px-6 py-3 text-left text-sm font-medium" style={{ color: "#E0E0E0" }}>Plano</th>

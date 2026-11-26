@@ -134,7 +134,7 @@ export const HistoricoCorridas = ({ userId, userName }: HistoricoCorridasProps) 
       </p>
       <Card className="bg-card border-0 rounded-lg overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full">
+          <table className="w-full max-lg:[&_td]:whitespace-nowrap max-lg:[&_th]:whitespace-nowrap">
             <thead className="bg-table-header">
               <tr>
                 {["Data", "Competição", "Inscrição", "Distância", "Tempo", "Pace", "Status", "Ranking"].map((h) => (
