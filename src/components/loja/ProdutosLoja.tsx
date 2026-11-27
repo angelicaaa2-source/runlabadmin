@@ -42,6 +42,8 @@ interface ProdutoLoja {
   in_kit: boolean;
   /** "Leve também": depois de quais inscrições aparece (slugs dos planos). Vazio = não aparece. */
   upsell_plan_slugs: string[];
+  /** Nome que o cliente vê no checkout. Nulo = o nome do Dash (que a cópia do estoque sobrescreve). */
+  display_name: string | null;
   page_slug: string | null;
   description: string | null;
   image_url: string | null;
@@ -131,7 +133,7 @@ function useProdutosLoja() {
       const { data, error } = await supabase
         .from("store_products")
         .select(
-          "id, category, name, variation_label, dash_active, price, is_visible, show_in_general_checkout, in_kit, upsell_plan_slugs, page_slug, description, image_url, sort_order, synced_at, store_product_options(id, name, stock, dash_active, is_visible, image_url, sort_order)",
+          "id, category, name, variation_label, dash_active, price, is_visible, show_in_general_checkout, in_kit, upsell_plan_slugs, display_name, page_slug, description, image_url, sort_order, synced_at, store_product_options(id, name, stock, dash_active, is_visible, image_url, sort_order)",
         )
         .order("sort_order", { ascending: true })
         .order("name", { ascending: true });
@@ -314,8 +316,12 @@ function CartaoProduto({
 }) {
   const [preco, setPreco] = useState(precoParaTexto(produto.price));
   const [descricao, setDescricao] = useState(produto.description ?? "");
+  const [nome, setNome] = useState(produto.display_name ?? "");
   const [salvando, setSalvando] = useState(false);
-  const mudouTexto = preco !== precoParaTexto(produto.price) || descricao !== (produto.description ?? "");
+  const mudouTexto =
+    preco !== precoParaTexto(produto.price) ||
+    descricao !== (produto.description ?? "") ||
+    nome !== (produto.display_name ?? "");
   const pecas = produto.store_product_options.filter((o) => o.dash_active).reduce((t, o) => t + Math.max(o.stock, 0), 0);
   const travado = !podeEditar || salvando || !produto.dash_active;
 
@@ -331,7 +337,18 @@ function CartaoProduto({
     }
     setSalvando(true);
     try {
-      await atualizaProduto(produto.id, { price: valor, description: descricao.trim() || null });
+      // Nome igual ao do Dash (ou vazio) fica nulo: segue o Dash.
+      const nomeLimpo = nome.trim().replace(/\s+/g, " ");
+      if (nomeLimpo.length > 80) {
+        toast.error("Nome muito longo", { description: "Use até 80 letras." });
+        setSalvando(false);
+        return;
+      }
+      await atualizaProduto(produto.id, {
+        price: valor,
+        description: descricao.trim() || null,
+        display_name: nomeLimpo && nomeLimpo !== produto.name ? nomeLimpo : null,
+      });
       toast.success(`${produto.name} salvo`);
       onMudou();
     } catch (e) {
@@ -392,7 +409,12 @@ function CartaoProduto({
         aria-expanded={aberto}
         className="flex w-full items-center gap-3 px-4 py-3 text-left"
       >
-        <span className="flex-1 font-semibold text-foreground">{produto.name}</span>
+        <span className="flex-1 font-semibold text-foreground">
+          {produto.display_name || produto.name}
+          {produto.display_name && (
+            <span className="block text-xs font-normal text-muted-foreground">No Dash: {produto.name}</span>
+          )}
+        </span>
         <span className="flex flex-wrap justify-end gap-2">
           <Badge
             className={
@@ -486,6 +508,21 @@ function CartaoProduto({
             </span>
           </label>
         </div>
+      </div>
+
+      <div className="space-y-1">
+        <label htmlFor={`nome-${produto.id}`} className="text-xs text-muted-foreground">
+          Nome no checkout (o cliente vê este; vazio = nome do Dash)
+        </label>
+        <Input
+          id={`nome-${produto.id}`}
+          placeholder={produto.name}
+          maxLength={80}
+          value={nome}
+          disabled={!podeEditar}
+          onChange={(e) => setNome(e.target.value)}
+          className="bg-[#262626] sm:max-w-[420px]"
+        />
       </div>
 
       <div className="grid gap-3 sm:grid-cols-[160px_1fr_auto] sm:items-end">
