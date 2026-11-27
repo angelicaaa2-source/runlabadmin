@@ -52,6 +52,8 @@ export type CompetitionDetail = {
   mode: string;
   formatType: string;
   formatObservations: string | null;
+  /** Classificação do ranking no app: "tempo" (mais rápido) ou "atividades" (mais atividades concluídas). */
+  rankingMode: string;
   status: string;
   /** Rascunho com data marcada para aparecer no app (null = sem data). */
   publishAt: string | null;
@@ -347,6 +349,7 @@ export function useCompetitionDetails(id: string | undefined) {
         mode: comp.mode,
         formatType: comp.format_type ?? "oficial",
         formatObservations: comp.format_observations ?? null,
+        rankingMode: comp.ranking_mode ?? "tempo",
         status: comp.status,
         publishAt: comp.publish_at ?? null,
         isFree: comp.is_free,

@@ -36,6 +36,8 @@ const formSchema = z.object({
   modalidade: z.enum(["indoor", "outdoor"], { required_error: "Modalidade é obrigatória" }),
   formato: z.enum(["oficial", "patrocinada", "personalizado"], { required_error: "Formato é obrigatório" }),
   formatoObservacoes: z.string().optional(),
+  /** Classificação do ranking no app (competitions.ranking_mode). */
+  classificacaoRanking: z.enum(["tempo", "atividades"]).optional(),
   campeonato: z.string().optional(),
   inscricaoInicio: z.date().optional(),
   inscricaoFim: z.date().optional(),
@@ -128,6 +130,7 @@ const CadastrarCampeonato = () => {
       modalidade: undefined,
       formato: undefined,
       formatoObservacoes: "",
+      classificacaoRanking: "tempo",
       campeonato: "",
       inscricaoInicio: undefined,
       inscricaoFim: undefined,
@@ -265,6 +268,7 @@ const CadastrarCampeonato = () => {
           mode: data.modalidade ?? "outdoor",
           format_type: data.formato ?? "oficial",
           format_observations: data.formato === "personalizado" ? (data.formatoObservacoes?.trim() || null) : null,
+          ranking_mode: data.classificacaoRanking ?? "tempo",
           status,
           is_free: isFree,
           cover_image_url: null,
@@ -586,6 +590,27 @@ const CadastrarCampeonato = () => {
                   />
                 </div>
               )}
+
+              {/* Classificação do ranking no app (competitions.ranking_mode) */}
+              <div>
+                <Label htmlFor="classificacaoRanking" className="text-foreground">
+                  Classificação do ranking
+                </Label>
+                <Select value={watch("classificacaoRanking") ?? "tempo"} onValueChange={(value) => setValue("classificacaoRanking", value as "tempo" | "atividades")}>
+                  <SelectTrigger id="classificacaoRanking" className="mt-2" data-classificacao-ranking>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="tempo">Mais rápido</SelectItem>
+                    <SelectItem value="atividades">Mais atividades concluídas</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {watch("classificacaoRanking") === "atividades"
+                    ? "Fica na frente quem concluir mais atividades na corrida (todas as distâncias juntas). Empate: mais km somados e, depois, quem terminou antes a última atividade."
+                    : "Fica na frente o menor tempo, em cada distância."}
+                </p>
+              </div>
 
               {/* Banners */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
