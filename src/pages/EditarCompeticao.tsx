@@ -4,6 +4,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { Header } from "@/components/Header";
+import { PreencherRankingField } from "@/components/PreencherRankingField";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -129,6 +130,8 @@ const formSchema = z.object({
   formatoObservacoes: z.string().optional(),
   /** Classificação do ranking no app (competitions.ranking_mode). */
   classificacaoRanking: z.enum(["tempo", "atividades"]).optional(),
+  /** "Preencher ranking" com os perfis da casa (competitions.fill_ranking). */
+  preencherRanking: z.boolean().optional(),
   campeonato: z.string().optional(),
   inscricaoInicio: z.date().optional(),
   inscricaoFim: z.date().optional(),
@@ -161,6 +164,7 @@ const defaultFormValues: FormData = {
   formato: "oficial",
   formatoObservacoes: "",
   classificacaoRanking: "tempo",
+  preencherRanking: false,
   campeonato: "",
   inscricaoInicio: undefined,
   inscricaoFim: undefined,
@@ -299,6 +303,7 @@ const EditarCompeticao = () => {
       formato: formatValue as "oficial" | "patrocinada" | "personalizado",
       formatoObservacoes: competition.formatObservations ?? "",
       classificacaoRanking: competition.rankingMode === "atividades" ? "atividades" : "tempo",
+      preencherRanking: competition.fillRanking,
       // sem campeonato no banco = "Nenhum" selecionado (antes o campo voltava vazio e parecia não ter salvo)
       campeonato: competition.championshipId ?? "nenhum",
       inscricaoInicio: calendarFromLocalDate(competition.registrationStartsOn),
@@ -458,6 +463,7 @@ const EditarCompeticao = () => {
           format_type: data.formato ?? "oficial",
           format_observations: data.formato === "personalizado" ? (data.formatoObservacoes?.trim() || null) : null,
           ranking_mode: data.classificacaoRanking ?? "tempo",
+          fill_ranking: data.preencherRanking ?? false,
           is_free: isFree,
           championship_id: championshipId,
           unlimited_attempts: data.tentativasIlimitadas ?? true,
@@ -1012,6 +1018,15 @@ const EditarCompeticao = () => {
                     : "Fica na frente o menor tempo, em cada distância."}
                 </p>
               </div>
+
+              {/* Preencher ranking com os perfis da casa (competitions.fill_ranking) */}
+              <PreencherRankingField
+                estilo="editar"
+                value={form.watch("preencherRanking") ?? false}
+                onChange={(v) => form.setValue("preencherRanking", v, { shouldDirty: true })}
+                temCampeonato={!!form.watch("campeonato") && !["nenhum", "none"].includes(form.watch("campeonato") ?? "")}
+                rankingPorAtividades={form.watch("classificacaoRanking") === "atividades"}
+              />
 
               {/* Vincular campeonato */}
               <div className="mb-6">

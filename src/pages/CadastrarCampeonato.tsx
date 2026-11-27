@@ -1,4 +1,5 @@
 import { Header } from "@/components/Header";
+import { PreencherRankingField } from "@/components/PreencherRankingField";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -38,6 +39,8 @@ const formSchema = z.object({
   formatoObservacoes: z.string().optional(),
   /** Classificação do ranking no app (competitions.ranking_mode). */
   classificacaoRanking: z.enum(["tempo", "atividades"]).optional(),
+  /** "Preencher ranking" com os perfis da casa (competitions.fill_ranking). */
+  preencherRanking: z.boolean().optional(),
   campeonato: z.string().optional(),
   inscricaoInicio: z.date().optional(),
   inscricaoFim: z.date().optional(),
@@ -82,6 +85,8 @@ const CadastrarCampeonato = () => {
   const [miniBannerImage, setMiniBannerImage] = useState<string | null>(null);
   const [miniBannerFile, setMiniBannerFile] = useState<File | null>(null);
   const [championships, setChampionships] = useState<ChampionshipOption[]>([]);
+  /** true depois que a pessoa mexe no "Preencher ranking" (aí o formato não muda mais a escolha). */
+  const [preencherTocado, setPreencherTocado] = useState(false);
   const [championshipsLoading, setChampionshipsLoading] = useState(true);
   const [selectedDistances, setSelectedDistances] = useState<string[]>([]);
   const [outraDistancia, setOutraDistancia] = useState<string>("");
@@ -131,6 +136,7 @@ const CadastrarCampeonato = () => {
       formato: undefined,
       formatoObservacoes: "",
       classificacaoRanking: "tempo",
+      preencherRanking: true,
       campeonato: "",
       inscricaoInicio: undefined,
       inscricaoFim: undefined,
@@ -269,6 +275,7 @@ const CadastrarCampeonato = () => {
           format_type: data.formato ?? "oficial",
           format_observations: data.formato === "personalizado" ? (data.formatoObservacoes?.trim() || null) : null,
           ranking_mode: data.classificacaoRanking ?? "tempo",
+          fill_ranking: data.preencherRanking ?? data.formato !== "personalizado",
           status,
           is_free: isFree,
           cover_image_url: null,
@@ -560,7 +567,15 @@ const CadastrarCampeonato = () => {
                   <Label htmlFor="formato" className="text-foreground">
                     Formato
                   </Label>
-                  <Select value={watch("formato")} onValueChange={(value) => setValue("formato", value as "oficial" | "patrocinada" | "personalizado")}>
+                  <Select
+                    value={watch("formato")}
+                    onValueChange={(value) => {
+                      setValue("formato", value as "oficial" | "patrocinada" | "personalizado");
+                      // Padrão do "Preencher ranking": sim nas corridas da RunLab, não nas personalizadas de parceiros
+                      // (só enquanto ninguém mexeu no campo).
+                      if (!preencherTocado) setValue("preencherRanking", value !== "personalizado");
+                    }}
+                  >
                     <SelectTrigger className="mt-2">
                       <SelectValue placeholder="Selecione o formato" />
                     </SelectTrigger>
@@ -611,6 +626,17 @@ const CadastrarCampeonato = () => {
                     : "Fica na frente o menor tempo, em cada distância."}
                 </p>
               </div>
+
+              {/* Preencher ranking com os perfis da casa (competitions.fill_ranking) */}
+              <PreencherRankingField
+                value={watch("preencherRanking") ?? true}
+                onChange={(v) => {
+                  setPreencherTocado(true);
+                  setValue("preencherRanking", v);
+                }}
+                temCampeonato={!!watch("campeonato") && watch("campeonato") !== "none"}
+                rankingPorAtividades={watch("classificacaoRanking") === "atividades"}
+              />
 
               {/* Banners */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

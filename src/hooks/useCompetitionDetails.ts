@@ -4,6 +4,7 @@ import { semAcento } from "@/lib/buscaSemAcento";
 import { useRealtimeRefetch } from "./useSupabaseRealtime";
 import { formatLocalDate, formatLocalDateRange, resolveLocalDate } from "@/lib/localDate";
 import { fetchGenders, rankByGender, type Genero } from "@/lib/genero";
+import { fetchHouseProfileIds, onlyRealRunners } from "@/lib/perfisDaCasa";
 
 // ─── Types ───────────────────────────────────────────────
 
@@ -54,6 +55,8 @@ export type CompetitionDetail = {
   formatObservations: string | null;
   /** Classificação do ranking no app: "tempo" (mais rápido) ou "atividades" (mais atividades concluídas). */
   rankingMode: string;
+  /** "Preencher ranking": o ranking do app mostra também os perfis da casa (competitions.fill_ranking). */
+  fillRanking: boolean;
   status: string;
   /** Rascunho com data marcada para aparecer no app (null = sem data). */
   publishAt: string | null;
@@ -108,6 +111,8 @@ export type RankingRow = {
   rawTotalTimeSeconds: number | null;
   /** Gênero do cadastro ("Feminino" | "Masculino" | null). */
   gender: string | null;
+  /** Perfil da casa da RunLab (house_profiles): aparece no app, não é corredor e não entra nas exportações. */
+  isHouseProfile: boolean;
 };
 
 export type RankingSource = "public" | "audit";
@@ -350,6 +355,7 @@ export function useCompetitionDetails(id: string | undefined) {
         formatType: comp.format_type ?? "oficial",
         formatObservations: comp.format_observations ?? null,
         rankingMode: comp.ranking_mode ?? "tempo",
+        fillRanking: comp.fill_ranking ?? false,
         status: comp.status,
         publishAt: comp.publish_at ?? null,
         isFree: comp.is_free,
@@ -841,6 +847,7 @@ export function useCompetitionRanking(
             hiddenReason: null,
             rawTotalTimeSeconds: null,
             gender: genders[r.user_id] ?? null,
+            isHouseProfile: false,
           }))
         );
         return;
@@ -869,8 +876,11 @@ export function useCompetitionRanking(
       }
 
       const pageUserIds = (runs as unknown as { user_id: string }[]).map((r) => r.user_id);
-      const pageGenders = await fetchGenders(pageUserIds);
-      const rows: RankingRow[] = runs.map((r) => ({
+      const [pageGenders, house] = await Promise.all([
+        fetchGenders(pageUserIds),
+        source === "public" ? fetchHouseProfileIds() : Promise.resolve(new Set<string>()),
+      ]);
+      const rows: RankingRow[] = runs.map((r, i) => ({
         position: r.rank,
         userId: r.user_id,
         userName: r.user_name || "Usuário desconhecido",
@@ -884,6 +894,7 @@ export function useCompetitionRanking(
         hiddenReason: r.hidden_reason ?? null,
         rawTotalTimeSeconds: r.raw_total_time_seconds ?? null,
         gender: null,
+        isHouseProfile: house.has(pageUserIds[i]),
       }));
       rows.forEach((row) => {
         row.gender = pageGenders[row.userId] ?? null;
@@ -1050,14 +1061,17 @@ export async function exportRankingCsv(competitionId: string, gender: Genero = "
     runs.push(...((chunk ?? []) as Linha[]));
     if (!chunk || chunk.length < 1000) break;
   }
-  if (runs.length === 0) {
+  // Perfis da casa (house_profiles) aparecem no app, mas não são corredores: ficam fora da exportação, que é a
+  // base de sorteio e premiação. A posição é refeita só entre corredores reais.
+  const reais = onlyRealRunners(runs, await fetchHouseProfileIds()).map((r) => ({ ...r, rank: r.realRank }));
+  if (reais.length === 0) {
     throw new Error("Nenhum resultado no ranking para exportar");
   }
 
-  const genders = await fetchGenders(runs.map((r) => r.user_id));
+  const genders = await fetchGenders(reais.map((r) => r.user_id));
   const lista = gender
-    ? rankByGender(runs, genders, gender).map((r) => ({ ...r, posicao: r.genderRank }))
-    : runs.map((r) => ({ ...r, posicao: r.rank }));
+    ? rankByGender(reais, genders, gender).map((r) => ({ ...r, posicao: r.genderRank }))
+    : reais.map((r) => ({ ...r, posicao: r.rank }));
   if (lista.length === 0) {
     throw new Error(`Nenhum resultado no ranking ${gender.toLowerCase()} para exportar`);
   }
@@ -1132,10 +1146,14 @@ export async function exportAttemptsCsv(competitionId: string) {
     return all;
   }
 
-  const publicRows = await fetchAll<PublicRow>(
-    "v_competition_leaderboard",
-    "user_id, distance_meters, avg_pace_seconds_per_km, total_time_seconds, rank, user_name, state"
-  );
+  // Sem os perfis da casa (não são corredores), com a posição refeita só entre corredores reais.
+  const publicRows = onlyRealRunners(
+    await fetchAll<PublicRow>(
+      "v_competition_leaderboard",
+      "user_id, distance_meters, avg_pace_seconds_per_km, total_time_seconds, rank, user_name, state"
+    ),
+    await fetchHouseProfileIds()
+  ).map((r) => ({ ...r, rank: r.realRank }));
   const auditRows = await fetchAll<AuditRow>(
     "v_admin_competition_attempt_ranking",
     "user_id, distance_meters, avg_pace_seconds_per_km, total_time_seconds, rank, user_name, state, public_visibility, hidden_reason"
