@@ -621,8 +621,9 @@ const CadastrarCampeonato = () => {
                           <p className="text-sm text-[#CCF725] mb-3">
                             Arraste e solte o arquivo aqui
                           </p>
-                          <Button type="button" variant="outline" size="sm" className="border-[#CCF725] text-[#CCF725] hover:bg-[#CCF725]/10">
-                            Procurar arquivo
+                          {/* span (asChild): um <button> dentro do <label> não abre o seletor de arquivo no navegador */}
+                          <Button asChild variant="outline" size="sm" className="cursor-pointer border-[#CCF725] text-[#CCF725] hover:bg-[#CCF725]/10">
+                            <span>Procurar arquivo</span>
                           </Button>
                           <p className="text-xs text-muted-foreground mt-3">
                             Recomendado: 1200 x 600 px, JPG ou PNG, até 2 MB
@@ -667,8 +668,9 @@ const CadastrarCampeonato = () => {
                           <p className="text-sm text-[#CCF725] mb-3">
                             Arraste e solte o arquivo aqui
                           </p>
-                          <Button type="button" variant="outline" size="sm" className="border-[#CCF725] text-[#CCF725] hover:bg-[#CCF725]/10">
-                            Procurar arquivo
+                          {/* span (asChild): um <button> dentro do <label> não abre o seletor de arquivo no navegador */}
+                          <Button asChild variant="outline" size="sm" className="cursor-pointer border-[#CCF725] text-[#CCF725] hover:bg-[#CCF725]/10">
+                            <span>Procurar arquivo</span>
                           </Button>
                           <p className="text-xs text-muted-foreground mt-3">
                             Recomendado: 400 x 400 px, JPG ou PNG, até 1 MB
