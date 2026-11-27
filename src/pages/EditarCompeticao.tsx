@@ -299,7 +299,8 @@ const EditarCompeticao = () => {
       formato: formatValue as "oficial" | "patrocinada" | "personalizado",
       formatoObservacoes: competition.formatObservations ?? "",
       classificacaoRanking: competition.rankingMode === "atividades" ? "atividades" : "tempo",
-      campeonato: competition.championshipId ?? "",
+      // sem campeonato no banco = "Nenhum" selecionado (antes o campo voltava vazio e parecia não ter salvo)
+      campeonato: competition.championshipId ?? "nenhum",
       inscricaoInicio: calendarFromLocalDate(competition.registrationStartsOn),
       inscricaoFim: calendarFromLocalDate(competition.registrationEndsOn),
       competicaoInicio: calendarFromLocalDate(competition.startsOn),
@@ -1020,7 +1021,7 @@ const EditarCompeticao = () => {
                   </Label>
                   <span className="text-xs text-muted-foreground">(opcional)</span>
                 </div>
-                <Select value={form.watch("campeonato") || ""} onValueChange={value => form.setValue("campeonato", value, { shouldDirty: true, shouldValidate: true })}>
+                <Select value={form.watch("campeonato") || "nenhum"} onValueChange={value => form.setValue("campeonato", value, { shouldDirty: true, shouldValidate: true })}>
                   <SelectTrigger className="bg-[#1A1A1A] border-border/30">
                     <SelectValue placeholder="Selecione o campeonato a ser vinculado" />
                   </SelectTrigger>
