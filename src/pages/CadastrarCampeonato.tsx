@@ -29,6 +29,7 @@ import { erroDaLista, mensagemPatrocinio, salvarPatrocinadores, type ItemPatroci
 import { erroDoArquivo, mensagemMedalha, salvarMedalha, type EscolhaMedalha } from "@/lib/medalha";
 import { erroDaEscolha, escolhaIso, formatPublishAt, type EscolhaPublicacao, type ModoPublicacao } from "@/lib/publicacao";
 
+import { listaKm, parseOutrasDistancias, rotuloKm } from "@/lib/distancias";
 const formSchema = z.object({
   nome: z.string().min(1, "Nome é obrigatório"),
   descricao: z.string().optional(),
@@ -220,7 +221,7 @@ const CadastrarCampeonato = () => {
     }
     const hasDistance =
       selectedDistances.some((d) => d !== "outro" && DISTANCE_METERS[d]) ||
-      (selectedDistances.includes("outro") && outraDistancia.trim() && !Number.isNaN(parseFloat(outraDistancia.replace(",", "."))));
+      (selectedDistances.includes("outro") && parseOutrasDistancias(outraDistancia).length > 0);
     if (!hasDistance) {
       toast.error("Selecione ao menos uma distância");
       return;
@@ -325,12 +326,16 @@ const CadastrarCampeonato = () => {
       }
 
       const distanceRows: { competition_id: string; label: string; meters: number; sort_order: number }[] = [];
-      selectedDistances.forEach((d, i) => {
-        if (d === "outro" && outraDistancia) {
-          const km = parseFloat(outraDistancia.replace(",", "."));
-          if (!Number.isNaN(km)) distanceRows.push({ competition_id: competitionId, label: `${km} km`, meters: Math.round(km * 1000), sort_order: i });
+      // "Outro" aceita várias distâncias ("2, 4, 6"): cada uma vira uma linha, na ordem digitada.
+      selectedDistances.forEach((d) => {
+        if (d === "outro") {
+          for (const km of parseOutrasDistancias(outraDistancia)) {
+            if (distanceRows.some((r) => r.meters === Math.round(km * 1000))) continue;
+            distanceRows.push({ competition_id: competitionId, label: rotuloKm(km), meters: Math.round(km * 1000), sort_order: distanceRows.length });
+          }
         } else if (DISTANCE_METERS[d]) {
-          distanceRows.push({ competition_id: competitionId, label: d, meters: DISTANCE_METERS[d], sort_order: i });
+          if (distanceRows.some((r) => r.meters === DISTANCE_METERS[d])) return;
+          distanceRows.push({ competition_id: competitionId, label: d, meters: DISTANCE_METERS[d], sort_order: distanceRows.length });
         }
       });
       if (distanceRows.length > 0) {
@@ -737,14 +742,24 @@ const CadastrarCampeonato = () => {
                   </Button>
                 </div>
                 {selectedDistances.includes("outro") && (
-                  <Input
-                    placeholder="Ex.: 7 (para 7 km)"
-                    className="mt-3"
-                    value={outraDistancia}
-                    onChange={(e) => setOutraDistancia(e.target.value)}
-                  />
+                  <>
+                    <Input
+                      placeholder="Ex.: 2, 4, 6 (em km)"
+                      className="mt-3"
+                      value={outraDistancia}
+                      onChange={(e) => setOutraDistancia(e.target.value)}
+                      data-outras-distancias
+                    />
+                    <p className="text-xs text-[#CCF725] mt-2" data-previa-distancias>
+                      {parseOutrasDistancias(outraDistancia).length > 0
+                        ? `Vai criar: ${listaKm(parseOutrasDistancias(outraDistancia))}`
+                        : "Digite uma ou mais distâncias em km, separadas por vírgula."}
+                    </p>
+                  </>
                 )}
-                <p className="text-xs text-muted-foreground mt-2">Para outras distâncias</p>
+                <p className="text-xs text-muted-foreground mt-2">
+                  Para outras distâncias, escolha Outro. Pode digitar várias, separadas por vírgula (2, 4, 6); para decimal, use ponto (7.5).
+                </p>
               </div>
             </div>
           </div>
