@@ -8,6 +8,7 @@ import { ChevronLeft, ChevronRight, Pencil, Download, Filter, Loader2, Search, C
 import { PublicacaoAppDialog } from "@/components/PublicacaoAppDialog";
 import { formatPublishAt } from "@/lib/publicacao";
 import { GENEROS, type Genero } from "@/lib/genero";
+import { PERFIL_DA_CASA_ROTULO } from "@/lib/perfisDaCasa";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
@@ -706,6 +707,24 @@ const RankingTab = ({
                 >
                   <TableCell className="text-foreground font-medium">{item.position}º</TableCell>
                   <TableCell className="font-medium text-foreground">
+                    {item.isHouseProfile ? (
+                      // Perfil da casa da RunLab: aparece no app, não é corredor (sem cadastro) e não entra nas exportações.
+                      <div className="flex items-center gap-3" data-perfil-da-casa title="Perfil da casa da RunLab: não concorre a nada e não entra nas exportações">
+                        <div className="w-10 h-10 rounded-full bg-muted overflow-hidden flex-shrink-0">
+                          {item.userAvatar ? (
+                            <img src={item.userAvatar} alt={item.userName} className="w-full h-full object-cover" />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center text-sm text-muted-foreground">
+                              {item.userName.charAt(0).toUpperCase()}
+                            </div>
+                          )}
+                        </div>
+                        <span>{item.userName}</span>
+                        <Badge variant="outline" className="bg-muted/40 text-muted-foreground border-border">
+                          {PERFIL_DA_CASA_ROTULO}
+                        </Badge>
+                      </div>
+                    ) : (
                     <button
                       type="button"
                       data-abrir-corredor
@@ -724,6 +743,7 @@ const RankingTab = ({
                       </div>
                       <span className="underline-offset-4 hover:underline">{item.userName}</span>
                     </button>
+                    )}
                   </TableCell>
                   <TableCell className="text-foreground">{formatPace(item.paceSecondsPerKm)}</TableCell>
                   <TableCell className="text-foreground">{formatTime(item.totalTimeSeconds)}</TableCell>
