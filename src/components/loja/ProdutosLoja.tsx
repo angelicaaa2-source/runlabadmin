@@ -5,6 +5,7 @@ import { ImageUp, Loader2, Trash2, ChevronDown } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/lib/supabase";
 
@@ -12,7 +13,8 @@ import { supabase } from "@/lib/supabase";
  * Loja do checkout, etapa 1 (24/11/2026): produtos físicos que podem aparecer no
  * checkout. Nome, categoria, opções e estoque vêm do Dash (cópia em
  * store_products e store_product_options); aqui se decide preço, se aparece,
- * se tem botão Adicionar no checkout geral, descrição e fotos. Camiseta: um
+ * em que inscrições aparece no "Leve também" (janela depois do Continuar,
+ * 26/11/2026), descrição e fotos. Camiseta: um
  * produto por modelo, opções = tamanhos. Boné e medalha: opções = cor ou fita,
  * cada uma com foto.
  */
@@ -38,6 +40,10 @@ interface ProdutoLoja {
   show_in_general_checkout: boolean;
   /** Opção na Inscrição com kit (modelo e tamanho/cor escolhidos no checkout). */
   in_kit: boolean;
+  /** "Leve também": depois de quais inscrições aparece (slugs dos planos). Vazio = não aparece. */
+  upsell_plan_slugs: string[];
+  /** Nome que o cliente vê no checkout. Nulo = o nome do Dash (que a cópia do estoque sobrescreve). */
+  display_name: string | null;
   page_slug: string | null;
   description: string | null;
   image_url: string | null;
@@ -54,6 +60,13 @@ const CATEGORIAS: { id: ProdutoLoja["category"]; titulo: string }[] = [
 
 /** Categorias em que cada opção (cor ou fita) tem foto própria. */
 const FOTO_POR_OPCAO = new Set<ProdutoLoja["category"]>(["bone", "medalha"]);
+
+/** Inscrições do checkout geral, na ordem da tela (slugs dos planos). */
+const INSCRICOES_LEVE_TAMBEM: { slug: string; nome: string; curto: string }[] = [
+  { slug: "challenge-ticket", nome: "Inscrição avulsa", curto: "avulsa" },
+  { slug: "challenge-pack", nome: "Inscrição com kit", curto: "kit" },
+  { slug: "runlab-club", nome: "RunLab Club", curto: "Club" },
+];
 
 const TAMANHO_MAXIMO = 3 * 1024 * 1024;
 const BOTAO_LIMAO = { backgroundColor: "#CCF725", color: "#1A1A1A" };
@@ -120,7 +133,7 @@ function useProdutosLoja() {
       const { data, error } = await supabase
         .from("store_products")
         .select(
-          "id, category, name, variation_label, dash_active, price, is_visible, show_in_general_checkout, in_kit, page_slug, description, image_url, sort_order, synced_at, store_product_options(id, name, stock, dash_active, is_visible, image_url, sort_order)",
+          "id, category, name, variation_label, dash_active, price, is_visible, show_in_general_checkout, in_kit, upsell_plan_slugs, display_name, page_slug, description, image_url, sort_order, synced_at, store_product_options(id, name, stock, dash_active, is_visible, image_url, sort_order)",
         )
         .order("sort_order", { ascending: true })
         .order("name", { ascending: true });
@@ -128,6 +141,7 @@ function useProdutosLoja() {
       return ((data ?? []) as ProdutoLoja[]).map((p) => ({
         ...p,
         price: p.price == null ? null : Number(p.price),
+        upsell_plan_slugs: Array.isArray(p.upsell_plan_slugs) ? p.upsell_plan_slugs : [],
         store_product_options: [...(p.store_product_options ?? [])].sort((a, b) => a.sort_order - b.sort_order),
       }));
     },
@@ -302,8 +316,12 @@ function CartaoProduto({
 }) {
   const [preco, setPreco] = useState(precoParaTexto(produto.price));
   const [descricao, setDescricao] = useState(produto.description ?? "");
+  const [nome, setNome] = useState(produto.display_name ?? "");
   const [salvando, setSalvando] = useState(false);
-  const mudouTexto = preco !== precoParaTexto(produto.price) || descricao !== (produto.description ?? "");
+  const mudouTexto =
+    preco !== precoParaTexto(produto.price) ||
+    descricao !== (produto.description ?? "") ||
+    nome !== (produto.display_name ?? "");
   const pecas = produto.store_product_options.filter((o) => o.dash_active).reduce((t, o) => t + Math.max(o.stock, 0), 0);
   const travado = !podeEditar || salvando || !produto.dash_active;
 
@@ -319,7 +337,18 @@ function CartaoProduto({
     }
     setSalvando(true);
     try {
-      await atualizaProduto(produto.id, { price: valor, description: descricao.trim() || null });
+      // Nome igual ao do Dash (ou vazio) fica nulo: segue o Dash.
+      const nomeLimpo = nome.trim().replace(/\s+/g, " ");
+      if (nomeLimpo.length > 80) {
+        toast.error("Nome muito longo", { description: "Use até 80 letras." });
+        setSalvando(false);
+        return;
+      }
+      await atualizaProduto(produto.id, {
+        price: valor,
+        description: descricao.trim() || null,
+        display_name: nomeLimpo && nomeLimpo !== produto.name ? nomeLimpo : null,
+      });
       toast.success(`${produto.name} salvo`);
       onMudou();
     } catch (e) {
@@ -329,20 +358,18 @@ function CartaoProduto({
     }
   };
 
-  const alterna = async (campo: "is_visible" | "show_in_general_checkout" | "in_kit", valor: boolean) => {
+  const alterna = async (campo: "is_visible" | "in_kit", valor: boolean) => {
     if (campo === "is_visible" && valor && produto.price == null) {
       toast.error("Coloque o preço e salve antes de mostrar no checkout.");
       return;
     }
-    if (campo === "show_in_general_checkout" && valor && !produto.is_visible) {
-      toast.error("Ligue \"À venda\" antes.");
-      return;
-    }
     setSalvando(true);
     try {
-      // Esconder o produto também tira o botão do checkout geral.
+      // Esconder o produto também tira do checkout geral e do "Leve também".
       const campos: Partial<ProdutoLoja> =
-        campo === "is_visible" && !valor ? { is_visible: false, show_in_general_checkout: false } : { [campo]: valor };
+        campo === "is_visible" && !valor
+          ? { is_visible: false, show_in_general_checkout: false, upsell_plan_slugs: [] }
+          : { [campo]: valor };
       await atualizaProduto(produto.id, campos);
       onMudou();
     } catch (e) {
@@ -352,6 +379,28 @@ function CartaoProduto({
     }
   };
 
+  /** "Leve também": liga ou desliga o produto depois de uma inscrição. */
+  const alternaLeveTambem = async (slug: string, valor: boolean) => {
+    if (valor && !produto.is_visible) {
+      toast.error("Ligue \"À venda\" antes.");
+      return;
+    }
+    const atual = produto.upsell_plan_slugs ?? [];
+    const novo = valor ? [...new Set([...atual, slug])] : atual.filter((s) => s !== slug);
+    // Mantém a ordem da tela (avulsa, kit, Club).
+    const ordenado = INSCRICOES_LEVE_TAMBEM.map((i) => i.slug).filter((s) => novo.includes(s));
+    setSalvando(true);
+    try {
+      await atualizaProduto(produto.id, { upsell_plan_slugs: ordenado });
+      onMudou();
+    } catch (e) {
+      toast.error("Não foi possível alterar", { description: e instanceof Error ? e.message : undefined });
+    } finally {
+      setSalvando(false);
+    }
+  };
+  const leveTambem = INSCRICOES_LEVE_TAMBEM.filter((i) => produto.upsell_plan_slugs?.includes(i.slug));
+
   return (
     <div className="rounded-lg border border-border bg-table-row">
       <button
@@ -360,7 +409,12 @@ function CartaoProduto({
         aria-expanded={aberto}
         className="flex w-full items-center gap-3 px-4 py-3 text-left"
       >
-        <span className="flex-1 font-semibold text-foreground">{produto.name}</span>
+        <span className="flex-1 font-semibold text-foreground">
+          {produto.display_name || produto.name}
+          {produto.display_name && (
+            <span className="block text-xs font-normal text-muted-foreground">No Dash: {produto.name}</span>
+          )}
+        </span>
         <span className="flex flex-wrap justify-end gap-2">
           <Badge
             className={
@@ -371,8 +425,10 @@ function CartaoProduto({
           >
             {produto.is_visible ? "À venda" : "Escondido"}
           </Badge>
-          {produto.show_in_general_checkout && (
-            <Badge className="bg-[#CCF725]/15 text-[#CCF725] hover:bg-[#CCF725]/15">No checkout geral</Badge>
+          {leveTambem.length > 0 && (
+            <Badge className="bg-[#CCF725]/15 text-[#CCF725] hover:bg-[#CCF725]/15">
+              Leve também: {leveTambem.map((i) => i.curto).join(", ")}
+            </Badge>
           )}
           {produto.in_kit && (
             <Badge className="bg-[#5BC0EB]/15 text-[#5BC0EB] hover:bg-[#5BC0EB]/15">No kit</Badge>
@@ -419,17 +475,27 @@ function CartaoProduto({
               <span className="block text-xs text-muted-foreground">Página própria do item e opcional nos checkouts de corrida</span>
             </span>
           </label>
-          <label className="flex items-start gap-2 text-sm text-foreground">
-            <Switch
-              checked={produto.show_in_general_checkout}
-              disabled={travado || !produto.is_visible}
-              onCheckedChange={(v) => void alterna("show_in_general_checkout", v)}
-            />
-            <span>
-              Também no checkout geral
-              <span className="block text-xs text-muted-foreground">Botão Adicionar junto das inscrições</span>
-            </span>
-          </label>
+          <fieldset className="space-y-1.5 text-sm text-foreground" disabled={travado || !produto.is_visible}>
+            <legend>
+              Leve também
+              <span className="block text-xs text-muted-foreground">
+                Janela depois do Continuar, no checkout geral. Aparece depois de:
+              </span>
+            </legend>
+            {INSCRICOES_LEVE_TAMBEM.map((i) => (
+              <label key={i.slug} className="flex items-center gap-2 pl-1">
+                <Checkbox
+                  checked={produto.upsell_plan_slugs?.includes(i.slug) ?? false}
+                  disabled={travado || !produto.is_visible}
+                  onCheckedChange={(v) => void alternaLeveTambem(i.slug, v === true)}
+                />
+                <span className={!produto.is_visible ? "text-muted-foreground" : undefined}>{i.nome}</span>
+              </label>
+            ))}
+            {!produto.is_visible && (
+              <span className="block text-xs text-muted-foreground">Ligue "À venda" para escolher.</span>
+            )}
+          </fieldset>
           <label className="flex items-start gap-2 text-sm text-foreground">
             <Switch
               checked={produto.in_kit}
@@ -442,6 +508,21 @@ function CartaoProduto({
             </span>
           </label>
         </div>
+      </div>
+
+      <div className="space-y-1">
+        <label htmlFor={`nome-${produto.id}`} className="text-xs text-muted-foreground">
+          Nome no checkout (o cliente vê este; vazio = nome do Dash)
+        </label>
+        <Input
+          id={`nome-${produto.id}`}
+          placeholder={produto.name}
+          maxLength={80}
+          value={nome}
+          disabled={!podeEditar}
+          onChange={(e) => setNome(e.target.value)}
+          className="bg-[#262626] sm:max-w-[420px]"
+        />
       </div>
 
       <div className="grid gap-3 sm:grid-cols-[160px_1fr_auto] sm:items-end">
