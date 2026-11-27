@@ -127,6 +127,8 @@ const formSchema = z.object({
   modalidade: z.enum(["indoor", "outdoor"], { required_error: "Selecione uma modalidade" }),
   formato: z.enum(["oficial", "patrocinada", "personalizado"], { required_error: "Selecione um formato" }),
   formatoObservacoes: z.string().optional(),
+  /** Classificação do ranking no app (competitions.ranking_mode). */
+  classificacaoRanking: z.enum(["tempo", "atividades"]).optional(),
   campeonato: z.string().optional(),
   inscricaoInicio: z.date().optional(),
   inscricaoFim: z.date().optional(),
@@ -158,6 +160,7 @@ const defaultFormValues: FormData = {
   modalidade: "outdoor",
   formato: "oficial",
   formatoObservacoes: "",
+  classificacaoRanking: "tempo",
   campeonato: "",
   inscricaoInicio: undefined,
   inscricaoFim: undefined,
@@ -295,6 +298,7 @@ const EditarCompeticao = () => {
       modalidade: modeValue as "indoor" | "outdoor",
       formato: formatValue as "oficial" | "patrocinada" | "personalizado",
       formatoObservacoes: competition.formatObservations ?? "",
+      classificacaoRanking: competition.rankingMode === "atividades" ? "atividades" : "tempo",
       campeonato: competition.championshipId ?? "",
       inscricaoInicio: calendarFromLocalDate(competition.registrationStartsOn),
       inscricaoFim: calendarFromLocalDate(competition.registrationEndsOn),
@@ -452,6 +456,7 @@ const EditarCompeticao = () => {
           mode: data.modalidade ?? "outdoor",
           format_type: data.formato ?? "oficial",
           format_observations: data.formato === "personalizado" ? (data.formatoObservacoes?.trim() || null) : null,
+          ranking_mode: data.classificacaoRanking ?? "tempo",
           is_free: isFree,
           championship_id: championshipId,
           unlimited_attempts: data.tentativasIlimitadas ?? true,
@@ -985,6 +990,27 @@ const EditarCompeticao = () => {
                   />
                 </div>
               )}
+
+              {/* Classificação do ranking no app (competitions.ranking_mode) */}
+              <div className="mb-6">
+                <Label htmlFor="classificacaoRanking" className="text-sm text-muted-foreground mb-2 block">
+                  Classificação do ranking
+                </Label>
+                <Select value={form.watch("classificacaoRanking") ?? "tempo"} onValueChange={value => form.setValue("classificacaoRanking", value as "tempo" | "atividades", { shouldDirty: true })}>
+                  <SelectTrigger id="classificacaoRanking" className="bg-[#1A1A1A] border-border/30" data-classificacao-ranking>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="bg-[#1A1A1A] border-border/30">
+                    <SelectItem value="tempo">Mais rápido</SelectItem>
+                    <SelectItem value="atividades">Mais atividades concluídas</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {form.watch("classificacaoRanking") === "atividades"
+                    ? "Fica na frente quem concluir mais atividades na corrida (todas as distâncias juntas). Empate: mais km somados e, depois, quem terminou antes a última atividade."
+                    : "Fica na frente o menor tempo, em cada distância."}
+                </p>
+              </div>
 
               {/* Vincular campeonato */}
               <div className="mb-6">
