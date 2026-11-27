@@ -1078,10 +1078,10 @@ const CadastrarCampeonato = () => {
                         {/* Nome do lote */}
                         <div>
                           <Label className="text-foreground text-sm">
-                            Ex.: Lote {index + 1} - Medalha garantida
+                            Nome do lote {index + 1}
                           </Label>
                           <Input
-                            placeholder={`Ex.: Lote ${index + 1} - Medalha garantida`}
+                            placeholder={index === 0 ? "Ex.: Inscrição avulsa" : "Ex.: Inscrição com kit"}
                             className="mt-2"
                             value={lote.nome}
                             onChange={(e) => {

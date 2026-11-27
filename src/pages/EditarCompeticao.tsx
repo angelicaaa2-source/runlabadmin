@@ -1366,10 +1366,19 @@ const EditarCompeticao = () => {
                 <>
                   {/* Lote 1 */}
                   <div className="mb-6">
-                    <Label className="text-sm text-muted-foreground mb-3 block">
-                      Ex.: Lote 1 - Medalha garantida
+                    <Label className="text-sm text-muted-foreground mb-2 block">
+                      Nome do lote 1
                     </Label>
+                    <Input
+                      placeholder="Ex.: Inscrição avulsa"
+                      {...form.register("lote1Nome")}
+                      className="bg-[#1A1A1A] border-border/30 mb-3"
+                      data-lote-nome="1"
+                    />
 
+                    <Label className="text-sm text-muted-foreground mb-2 block">
+                      Valor
+                    </Label>
                     <Input
                       placeholder="R$ 0,00"
                       {...form.register("lote1Preco")}
@@ -1419,10 +1428,19 @@ const EditarCompeticao = () => {
 
                   {/* Lote 2 */}
                   <div>
-                    <Label className="text-sm text-muted-foreground mb-3 block">
-                      Ex.: Lote 2 - Camiseta garantida + Medalha
+                    <Label className="text-sm text-muted-foreground mb-2 block">
+                      Nome do lote 2
                     </Label>
+                    <Input
+                      placeholder="Ex.: Inscrição com kit"
+                      {...form.register("lote2Nome")}
+                      className="bg-[#1A1A1A] border-border/30 mb-3"
+                      data-lote-nome="2"
+                    />
 
+                    <Label className="text-sm text-muted-foreground mb-2 block">
+                      Valor
+                    </Label>
                     <Input
                       placeholder="R$ 0,00"
                       {...form.register("lote2Preco")}
