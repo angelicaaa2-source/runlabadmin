@@ -25,6 +25,7 @@ import { calendarFromLocalDate, localDateFromCalendar } from "@/lib/localDate";
 import { PublicacaoAppCampos } from "@/components/PublicacaoAppCampos";
 import { MedalhaCorridaCampos } from "@/components/MedalhaCorridaCampos";
 import { PatrocinadoresCampos } from "@/components/PatrocinadoresCampos";
+import { listaKm, parseOutrasDistancias, rotuloKm } from "@/lib/distancias";
 import {
   assinatura,
   carregarPatrocinadores,
@@ -268,23 +269,22 @@ const EditarCompeticao = () => {
     const prizeFields = parsePrizeDescription(competition.prizeDescription);
 
     // Popula seleção de distâncias a partir das linhas em competition_distances.
-    // Padrões (3km/5km/...) viram o próprio value; qualquer outra label vira "outro"
-    // e preenche outraDistanciaInput com os km (se houver mais de uma não-padrão,
-    // a primeira vence — mesmo limite do formulário de cadastro).
+    // Padrões (3km/5km/...) viram o próprio value; todas as outras vão juntas para "outro"
+    // ("2, 4, 6"), para que salvar a edição não apague nenhuma delas.
     const selectedDistsAcc: string[] = [];
-    let outraInputAcc = "";
+    const outrasKm: string[] = [];
     for (const d of competition.distances) {
       const norm = normalizeDistanceLabel(d.label ?? "");
       if (STANDARD_DISTANCE_METERS[norm]) {
         selectedDistsAcc.push(norm);
-      } else if (!selectedDistsAcc.includes("outro")) {
-        selectedDistsAcc.push("outro");
+      } else {
+        if (!selectedDistsAcc.includes("outro")) selectedDistsAcc.push("outro");
         const km = (d.meters ?? 0) / 1000;
-        outraInputAcc = Number.isFinite(km) && km > 0 ? String(km) : (d.label ?? "");
+        outrasKm.push(Number.isFinite(km) && km > 0 ? String(km) : (d.label ?? ""));
       }
     }
     setSelectedDistances(selectedDistsAcc);
-    setOutraDistanciaInput(outraInputAcc);
+    setOutraDistanciaInput(outrasKm.join(", "));
 
     const modeValue = (competition.mode === "indoor" || competition.mode === "outdoor") ? competition.mode : "outdoor";
     const formatValue = (competition.formatType === "oficial" || competition.formatType === "patrocinada" || competition.formatType === "personalizado") ? competition.formatType : "oficial";
@@ -504,21 +504,19 @@ const EditarCompeticao = () => {
       if (competition) {
         type DesiredDistance = { label: string; meters: number; sort_order: number };
         const desiredRows: DesiredDistance[] = [];
-        selectedDistances.forEach((d, i) => {
+        // "Outro" aceita várias distâncias ("2, 4, 6"): cada uma vira uma linha, na ordem digitada.
+        selectedDistances.forEach((d) => {
           if (d === "outro") {
-            const km = parseFloat(outraDistanciaInput.replace(",", "."));
-            if (!Number.isNaN(km) && km > 0) {
-              desiredRows.push({
-                label: `${km} km`,
-                meters: Math.round(km * 1000),
-                sort_order: i,
-              });
+            for (const km of parseOutrasDistancias(outraDistanciaInput)) {
+              if (desiredRows.some((r) => r.meters === Math.round(km * 1000))) continue;
+              desiredRows.push({ label: rotuloKm(km), meters: Math.round(km * 1000), sort_order: desiredRows.length });
             }
           } else if (STANDARD_DISTANCE_METERS[d]) {
+            if (desiredRows.some((r) => r.meters === STANDARD_DISTANCE_METERS[d])) return;
             desiredRows.push({
               label: d,
               meters: STANDARD_DISTANCE_METERS[d],
-              sort_order: i,
+              sort_order: desiredRows.length,
             });
           }
         });
@@ -1051,15 +1049,23 @@ const EditarCompeticao = () => {
                   </Button>
                 </div>
                 {selectedDistances.includes("outro") && (
-                  <Input
-                    placeholder="Ex.: 7 (para 7 km)"
-                    className="mt-3 bg-[#1A1A1A] border-border/30"
-                    value={outraDistanciaInput}
-                    onChange={(e) => setOutraDistanciaInput(e.target.value)}
-                  />
+                  <>
+                    <Input
+                      placeholder="Ex.: 2, 4, 6 (em km)"
+                      className="mt-3 bg-[#1A1A1A] border-border/30"
+                      value={outraDistanciaInput}
+                      onChange={(e) => setOutraDistanciaInput(e.target.value)}
+                      data-outras-distancias
+                    />
+                    <p className="text-xs text-[#CCF725] mt-2" data-previa-distancias>
+                      {parseOutrasDistancias(outraDistanciaInput).length > 0
+                        ? `Distâncias em Outro: ${listaKm(parseOutrasDistancias(outraDistanciaInput))}`
+                        : "Digite uma ou mais distâncias em km, separadas por vírgula."}
+                    </p>
+                  </>
                 )}
                 <p className="text-xs text-muted-foreground mt-2">
-                  Selecione uma ou mais distâncias. Distâncias com inscritos só podem ser removidas após cancelar as inscrições correspondentes.
+                  Selecione uma ou mais distâncias. Em Outro, pode digitar várias, separadas por vírgula (2, 4, 6); para decimal, use ponto (7.5). Distâncias com inscritos só podem ser removidas após cancelar as inscrições correspondentes.
                 </p>
               </div>
             </div>
